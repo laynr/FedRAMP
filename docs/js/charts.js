@@ -111,6 +111,11 @@ export function stackedColumns(container, data, seriesNames, { valueLabel = null
   container.appendChild(svg);
 }
 
+/** Single-series column chart (histogram). data: [{label, count}] */
+export function columns(container, data, { seriesName = '', valueLabel = null } = {}) {
+  stackedColumns(container, data.map((d) => ({ label: d.label, values: [d.count] })), [seriesName], { valueLabel });
+}
+
 /**
  * Horizontal bar list (single series) with value labels at bar end.
  * data: [{label, sub, value}]

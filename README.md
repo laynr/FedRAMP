@@ -1,63 +1,66 @@
-# FedRAMP in 10 minutes
+# FedRAMP — unofficial explorer
 
-**Live site: https://laynr.github.io/FedRAMP/**
+**Live: https://laynr.github.io/FedRAMP/**
 
-A 10-minute, source-cited explainer of FedRAMP *as it works today* — mid-transition to
-FedRAMP 20x — powered by FedRAMP's own machine-readable data instead of hand-typed facts.
-Built as a take-home for Anthropic (Theme 1: Exploration & Understanding), by an engineer who
-had never touched FedRAMP before this project. That's the point: it's the page I wish I'd
-found on day one.
+A live tool for exploring FedRAMP — the U.S. government's cloud security-approval program —
+built on FedRAMP's own machine-readable data. The webpage is one consumer of a small toolchain
+this repo ships: a zero-dependency data CLI (also packaged as a Claude Code skill), a set of
+unit-tested pure transforms shared byte-for-byte between Node and the browser, a weekly CI data
+refresh, and a documented CORS-open static JSON API. Built as a take-home for Anthropic by an
+engineer who had never touched FedRAMP before this project.
 
-## What makes it different
+## What it does
 
-1. **It can't go stale the way FedRAMP explainers always do.** The program rewrote its rules
-   in June 2026, so most content online is now wrong (agency sponsors, the JAB, 12-month
-   reviews — all obsolete). This page computes its numbers in the browser from the official
-   GSA-published feeds, counts KSIs from the official rules JSON instead of asserting them,
-   and renders date-based claims as live countdowns that age gracefully.
-2. **Every factual sentence is cited** to one of 21 sources, each individually verified to
-   return 200 (`node tools/check-links.mjs` — fedramp.gov's June 2026 restructure 404'd a lot
-   of the internet's links).
-3. **The data layer is a reusable tool, not plumbing.** A zero-dependency CLI + Claude Code
-   skill (`tools/fedramp-data.mjs`, `.claude/skills/fedramp-data/`) fetches and queries the
-   official feeds; its pruned snapshots are republished from `docs/data/` as a small,
-   documented, CORS-open JSON API anyone can fetch ([docs/data/README.md](docs/data/README.md)).
+- **Pulse** — what's happening in the program right now: status changes and agency adoptions
+  from GSA's published feeds, live countdowns to the program's real deadlines, and — if you've
+  starred services — **"since you were last here"**: a diff of your watchlist against your last
+  visit, computed client-side.
+- **Services** — instant search over all ~670 listings; every service opens a profile with its
+  **journey** (its actual dated path through the authorization process, reconstructed from
+  FedRAMP's status-change log), who uses it, and its reuse footprint.
+- **How long?** — the question every newcomer asks, answered from the event log instead of
+  folklore: median **70 days** to certified on the 20x path vs **361** on legacy paths (as of
+  Aug 2026; n and caveats stated in-app), with distribution and a fastest-journeys leaderboard.
+- **Agencies** — who's adopting what across 244 agencies.
+- **KSI Quest** — the 20x security catalog rendered from the official rules JSON, as a
+  self-check study aid with gap-list export.
+- **What is FedRAMP?** — the explainer, demoted to a 90-second drawer; every claim cited to a
+  source verified live (see [Sources & method](https://laynr.github.io/FedRAMP/about.html)).
 
-## Architecture
+## The engineering underneath
 
 ```
-docs/                 the site — vanilla HTML/CSS/ES modules, zero deps, no build step
-  data/               pruned snapshots of official data (also a tiny public JSON API)
-  js/transforms.js    pure transforms shared by browser AND CLI (one source of truth)
+docs/                 the app — vanilla HTML/CSS/ES modules, zero deps, no build step
+  js/transforms.js    pure transforms incl. the journey engine (see invariants in-file)
+  js/watchlist.js     versioned localStorage schema + pure fingerprint diff
+  data/               pruned snapshots = a tiny public JSON API (see data/README.md)
 tools/
-  fedramp-data.mjs    zero-dep CLI: fetch / products / ksi / changelog / stats / snapshot
-  fedramp-data.test.mjs  unit tests + opt-in live shape checks (RUN_LIVE=1)
+  fedramp-data.mjs    zero-dep CLI: fetch/products/ksi/changelog/journeys/stats/snapshot
+  fedramp-data.test.mjs  16 tests incl. deliberately nasty event-log fixtures + live checks
   check-links.mjs     verifies every cited URL returns 200
-.github/workflows/refresh-data.yml   weekly: re-test, re-snapshot, commit if changed
-.claude/skills/fedramp-data/         the CLI documented as a Claude Code skill
+.github/workflows/refresh-data.yml  weekly: test → re-snapshot → commit
+.claude/skills/fedramp-data/        the CLI documented as a Claude Code skill
 ```
 
-Data sources (all official): [FedRAMP/marketplace-fedramp-gov-data](https://github.com/FedRAMP/marketplace-fedramp-gov-data)
-(the feed behind marketplace.fedramp.gov) and [FedRAMP/rules](https://github.com/FedRAMP/rules)
-(the Consolidated Rules for 2026 as JSON).
+The **journey engine** (`docs/js/transforms.js`) is the technical core: FedRAMP's changelog is
+real-world event data — migration-era backfill, out-of-order rows, duplicates, journeys with no
+recorded start or finish. The engine documents its invariants, excludes what it can't trust
+*and counts the exclusions* (surfaced in the app's method note), and is tested against fixtures
+for each failure mode. The same code computes the numbers in CI snapshots and in your browser's
+"fetch live" — they cannot disagree.
 
 ## Run it
 
 ```bash
-# the site (any static server)
 python3 -m http.server 4173 --directory docs   # → http://localhost:4173/
-
-# the data tool
-node tools/fedramp-data.mjs snapshot           # regenerate docs/data/
-node tools/fedramp-data.mjs ksi CNA            # browse KSIs in the terminal
-node --test tools/*.test.mjs                   # tests (RUN_LIVE=1 for live checks)
+node --test tools/*.test.mjs                   # tests (RUN_LIVE=1 adds live shape checks)
+node tools/fedramp-data.mjs journeys --fastest # the CLI, dogfooded throughout
 node tools/check-links.mjs                     # citation link audit
 ```
 
 ## Honesty notes
 
-This is a learning artifact, not an official resource, and it makes no claims about any
-specific company's compliance strategy. Costs have no official figures and are labeled as
-vendor estimates. Corrections welcome — [open an issue](https://github.com/laynr/FedRAMP/issues).
-
-See [RATIONALE.md](RATIONALE.md) for the design write-up.
+Unofficial; not affiliated with GSA or the FedRAMP program. Duration analytics carry a visible
+method note (the 20x sample is small and early). No claims about any company's compliance
+strategy. No cost figures — none exist officially. Corrections:
+[open an issue](https://github.com/laynr/FedRAMP/issues). Design write-up: [RATIONALE.md](RATIONALE.md).

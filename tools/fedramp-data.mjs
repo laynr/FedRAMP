@@ -19,9 +19,12 @@
 import { readFile, writeFile, mkdir, stat } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
-import { slimProducts, computeStats, pruneKsi, pruneChangelog } from '../docs/js/transforms.js';
+import {
+  slimProducts, computeStats, pruneKsi, pruneChangelog,
+  buildJourneys, journeyStats, buildActivity, slimAgencies,
+} from '../docs/js/transforms.js';
 
-export { slimProducts, computeStats, pruneKsi, pruneChangelog };
+export { slimProducts, computeStats, pruneKsi, pruneChangelog, buildJourneys, journeyStats, buildActivity, slimAgencies };
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const CACHE_DIR = path.join(ROOT, '.cache');
@@ -186,6 +189,17 @@ async function main() {
       console.log(JSON.stringify(computeStats(mkt), null, 2));
       break;
     }
+    case 'journeys': {
+      const cl = await fetchSource('changelog');
+      const built = buildJourneys(cl);
+      const stats = journeyStats(built);
+      if (flags.fastest) {
+        for (const f of stats.fastest) console.log(`${String(f.days).padStart(4)} days  ${f.is20x ? '[20x] ' : '      '}${f.cso} [${f.csp}]  finished ${f.end}`);
+      } else {
+        console.log(JSON.stringify({ ...stats, fastest: undefined, histogram: undefined }, null, 2));
+      }
+      break;
+    }
     case 'snapshot': {
       const [mkt, cl, rules] = await Promise.all([
         fetchSource('marketplace'),
@@ -193,10 +207,14 @@ async function main() {
         fetchSource('rules'),
       ]);
       await mkdir(OUT_DIR, { recursive: true });
+      const built = buildJourneys(cl);
       const bundles = {
         'products.json': slimProducts(mkt),
-        'stats.json': computeStats(mkt),
+        'stats.json': { ...computeStats(mkt), journeys: journeyStats(built) },
         'ksi.json': pruneKsi(rules),
+        'journeys.json': built.journeys,
+        'agencies.json': slimAgencies(mkt),
+        'activity.json': buildActivity(mkt, cl),
         'changelog.json': pruneChangelog(cl, { since: monthsAgoISO(18) }),
         'meta.json': {
           generated: new Date().toISOString(),

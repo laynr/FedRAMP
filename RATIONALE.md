@@ -1,82 +1,78 @@
-# Design rationale — FedRAMP in 10 minutes
+# Design rationale — FedRAMP, an unofficial explorer
 
 *Written doc accompanying the ~5 minute video. Take-home for Anthropic, Staff+ SWE (Public
 Sector). Live at https://laynr.github.io/FedRAMP/*
 
-## Why this theme, why this idea
+## Why this theme, this idea
 
-I chose **Theme 1 (Exploration & Understanding)** and pointed it at a real gap in my own
-knowledge. I've spent years building AI systems *inside* classified environments — but I've
-never brought a product to the government from the outside, so FedRAMP was a word I knew and
-a process I didn't. The Public Sector role I'm applying for lists "FedRAMP to classified
-networks" as its daily terrain, so I built the artifact I actually needed: the shortest
-honest explanation of FedRAMP as it works **today**, verified end to end.
+Theme 1 (Exploration & Understanding), pointed at a real gap in my own knowledge: I've built AI
+systems *inside* classified environments but had never approached the government from the
+outside — FedRAMP was a word I knew and a process I didn't. The role I'm applying for lists
+"FedRAMP to classified networks" as daily terrain. So I built the tool I actually needed.
 
-The timing turned the idea from "another compliance explainer" into something with a real
-edge: FedRAMP replaced its rulebook on June 24–25, 2026 (Consolidated Rules for 2026), the
-JAB no longer exists, agency sponsors are no longer required, and the legacy Rev5 path has a
-published sunset date. Most of what Google returns is now wrong. A static explainer would
-join that graveyard within months.
+The timing gave the idea teeth: FedRAMP replaced its rulebook in June 2026 (Consolidated Rules,
+FedRAMP 20x), the JAB is gone, sponsors are no longer required, and Rev5 has a public sunset
+date — most content online is now quietly wrong. A tool wired to the program's own
+machine-readable data stays right as the program moves.
+
+## v1 → v2: killing the wall of text (the judgment story)
+
+v1 was a beautifully cited 10-minute explainer. My own review: *it didn't spark joy — a wall of
+text nobody visits twice.* So v2 inverted the product: **tool first, explainer demoted to a
+90-second drawer.** Two questions drove the redesign, asked bluntly of my own work:
+
+1. **"Why would anyone return?"** Answer built: the watchlist. Star services; localStorage
+   keeps a fingerprint of each; your next visit *leads* with "since you were last here: Coralogix
+   went PMO Review → FedRAMP Certified." A genuine return mechanic with zero backend.
+2. **"Where does it demonstrate engineering depth?"** Answer built: the journey engine.
+   FedRAMP's status changelog is messy real-world event data (migration backfill, out-of-order
+   rows, duplicates, incomplete journeys). Reconstructing per-service journeys and
+   time-to-authorization analytics from it — with documented invariants, counted exclusions,
+   and adversarial test fixtures — is provenance-and-correctness engineering, the same muscle
+   regulated-environment work uses. It surfaced a finding nobody publishes: **median 70 days to
+   certified on the 20x path vs 361 legacy** (n stated, caveats in-app).
 
 ## The non-obvious part
 
-**The medium demonstrates the message.** FedRAMP 20x's core thesis is that security claims
-should be machine-readable and continuously validated instead of narrated in Word documents.
-So this explainer refuses to hand-type its facts:
-
-- Marketplace figures are computed in your browser from the same GSA-published feed that
-  powers marketplace.fedramp.gov, with a one-click "fetch live from source."
-- The KSI catalog renders the official rules JSON — when the page says "46 indicators," it
-  *counted them at load time*. (Good thing, too: most 2025-era articles say 61. The current
-  rules version says otherwise, and my page will follow the file, not the folklore.)
-- Date-based claims are countdowns computed client-side, so "Class B/C pipelines open in 16
-  days" gracefully becomes "opened 30 days ago" without a redeploy.
-- The pruned data snapshots are themselves republished as a small documented CORS-open JSON
-  API from GitHub Pages, refreshed weekly by CI — a static site that ships a usable data
-  service.
-
-A page teaching "measured outcomes over documented plans" that itself practices measured
-outcomes over documented plans felt like the right kind of non-obvious.
+The medium is the message. 20x's thesis is machine-readable, continuously-validated security
+instead of narrated documents. This tool practices that on itself: figures computed in-browser
+from GSA's feeds (one click re-fetches live), KSI counts counted from the rules file rather than
+asserted (the current file says 46 indicators — most 2025-era articles still say 61), countdowns
+that age gracefully, and one set of pure transforms shared by CI and browser so the snapshot and
+live views can't disagree.
 
 ## Key decisions & tradeoffs
 
-- **Vanilla, no build, zero dependencies.** The assignment values scoping and reviewability;
-  a Vite/React stack would have added a toolchain to audit without adding explanatory power.
-  Hand-rolled SVG charts follow a color/accessibility method (validated palette, colorblind-
-  safe series separation, dark mode as designed steps rather than an automatic flip).
-- **Shared pure transforms.** `docs/js/transforms.js` is imported by the browser, the CLI,
-  and the tests — the live refresh and the CI snapshots can't disagree by construction.
-- **Snapshot-first, live-upgrade.** The page paints instantly from bundled data (and works
-  offline / if the feeds move); one click re-fetches the 4.4 MB source feed and recomputes
-  everything in-browser. Reviewers get a self-contained demo *and* proof it's real.
-- **Humility as a content rule.** No official cost figures exist, so costs are labeled vendor
-  estimates. Unverifiable things are flagged, not asserted. The page makes zero claims about
-  any specific company's compliance strategy — the practitioners are the experts; this page
-  is a study aid and says so. Every one of the 21 cited URLs is verified live by
-  `tools/check-links.mjs` (fedramp.gov's June 2026 restructure broke a remarkable number of
-  the internet's FedRAMP links — nothing here is cited from memory or model training data).
-- **Closed-loop testing.** Claude drove the page in Chrome itself — clicking every quiz,
-  checkbox, filter, and the live-fetch button, reading the console, and fixing what it found
-  — locally and again post-deploy.
+- **Vanilla, zero dependencies, no build step.** Reviewability over toolchain; the assignment
+  rewards scoping. Charts are hand-rolled SVG following a validated color/accessibility method
+  (colorblind-safe series separation, designed dark mode, reduced-motion respected).
+- **Snapshot-first, live-upgrade.** Instant first paint, works offline, self-contained for
+  reviewers — and one click proves it's real data.
+- **Static site is a stated scope decision.** A production version needs a backend (scheduled
+  ingestion, notifications for watchlist changes, an actual versioned API service), authn for
+  saved state across devices, and monitoring. The static version was chosen deliberately: it
+  demonstrates the data engineering and product thinking without an ops burden no reviewer can
+  evaluate in ten minutes.
+- **Honesty as a feature.** Every explainer claim cited to a URL verified live (link auditor in
+  CI); exclusions counted and shown; the 20x/legacy comparison labeled directional; zero claims
+  about any specific company's strategy; "unofficial" in the masthead.
 
-## What I'd do with more time
+## With more time
 
-- **Ship the data service properly**: a versioned FedRAMP-documents API (or MCP server) over
-  the marketplace feed, rules, KSIs, and OSCAL baselines — the CLI/skill here is the seed.
-- **"Which KSIs changed since you last looked"** diffing across rules versions, using the
-  status changelog and git history of the official repos.
-- **A guided Rev5→20x migration view** for the ~500 already-authorized services.
-- Deep-dive pages per KSI family with the mapped NIST controls expanded inline.
+Watchlist notifications (RSS/email via the CI job); journey diffing across rules versions
+("which KSIs changed since you last looked"); an MCP server over the same data layer so agents
+can query FedRAMP state; agency-level adoption trends over time.
 
 ## Time spent
 
 Approximately **X hours** (Layne: fill in — wall-clock from repo creation to submission),
-with Claude Code doing the research (three parallel verification agents), implementation, and
-browser-based testing under direction.
+including a shipped v1 that was deliberately torn down for taste.
 
 ## AI usage
 
-Built with Claude Code end to end; transcripts accompany the submission. My role was
-direction and judgment: choosing the concept and scope, setting the accuracy/humility rules
-(cited-or-cut, no claims about specific companies), redirecting the design when research
-surfaced landmines, and deciding what *not* to build.
+Built end to end with Claude Code — research (three parallel verification agents against live
+official sources), implementation, and closed-loop testing where Claude drove the app in Chrome
+itself: clicking every view, seeding localStorage to simulate a return visit, reading the
+console, fixing what it found, and re-verifying post-deploy. Transcripts accompany the
+submission. My role was direction and judgment: the concept, the accuracy rules (cited-or-cut,
+no company claims), the v1 teardown, and the two hard questions above.

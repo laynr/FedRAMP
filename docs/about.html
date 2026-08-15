@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sources &amp; method — FedRAMP unofficial explorer</title>
+<link rel="stylesheet" href="css/site.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📡</text></svg>">
+<style>
+  main.about { max-width: 780px; }
+  #source-list { font-size: 14px; }
+  #source-list li { margin: 8px 0; }
+  .src-url { display: block; color: var(--muted); font-size: 12px; word-break: break-all; }
+  .unverified-panel { border-left: 3px solid var(--series-2); }
+</style>
+</head>
+<body>
+<header class="app">
+  <div class="brand-block">
+    <a class="brand" href="./" style="text-decoration:none;color:inherit">FedRAMP</a>
+    <span class="unofficial">unofficial explorer</span>
+  </div>
+  <span class="spacer"></span>
+  <a class="ghost-btn" href="./" style="text-decoration:none">← Back to the tool</a>
+</header>
+
+<main class="about">
+  <h1>Sources &amp; method</h1>
+  <p>
+    This is a learning artifact built by an engineer approaching FedRAMP from the outside, in the
+    open. It is <strong>not affiliated with, or endorsed by, GSA or the FedRAMP program</strong>.
+    The experts — FedRAMP's program office and the practitioners who do this daily — are the
+    authorities; this tool is a lens on their published data.
+  </p>
+
+  <h2>Method</h2>
+  <ul>
+    <li><strong>Data, not prose:</strong> every figure in the tool is computed — in your browser —
+      from FedRAMP's own machine-readable publications: the data feed behind
+      marketplace.fedramp.gov and the Consolidated Rules for 2026 as JSON. A bundled snapshot
+      loads first; "fetch live" recomputes from the source feeds with the same code.</li>
+    <li><strong>Cited or cut:</strong> every factual claim in the explainer links to a numbered
+      source below. Each URL was individually verified to return HTTP 200 on
+      <strong>2026-08-15</strong> (fedramp.gov was restructured in June 2026 and many older links
+      now 404 — nothing here is cited from memory). A link auditor
+      (<code>tools/check-links.mjs</code>) re-verifies them.</li>
+    <li><strong>Journey durations:</strong> a service's "days to authorized" is the gap between
+      its first in-process-type event and its first certified/authorized event in FedRAMP's
+      published status-change log. Journeys without a measurable start or finish are excluded and
+      counted, never silently dropped. Migration-era records carry coarser dates; the 20x-path
+      sample is still small — treat the comparison as directional.</li>
+    <li><strong>The snapshots are a public mini-API:</strong> the pruned JSON bundles this site
+      ships are CORS-open and documented in
+      <a href="https://github.com/laynr/FedRAMP/tree/main/docs/data">docs/data</a>, refreshed
+      weekly by CI. You're welcome to build on them — or go straight to the official repos.</li>
+  </ul>
+
+  <h2>What this tool deliberately doesn't claim</h2>
+  <div class="panel unverified-panel">
+    <p>
+      No official cost figures for FedRAMP authorization exist (FedRAMP declined to require cost
+      reporting in RFC-0019), so this tool publishes none. Exact KSI and control counts shift as
+      RFCs adopt — the tool counts them from the live rules file instead of asserting them. And it
+      makes <strong>no claims about any specific company's compliance strategy</strong> — the
+      Marketplace data speaks for itself. Corrections are welcome:
+      <a href="https://github.com/laynr/FedRAMP/issues">open an issue</a>.
+    </p>
+  </div>
+
+  <h2>Sources</h2>
+  <p class="sub">All verified live on 2026-08-15.</p>
+  <ol id="source-list"></ol>
+</main>
+
+<footer>
+  <p>Built by <a href="https://github.com/laynr">@laynr</a> with Claude Code, as part of an
+  Anthropic take-home assignment. Data © U.S. General Services Administration via its published
+  feeds. <a href="https://github.com/laynr/FedRAMP">Source on GitHub</a></p>
+</footer>
+
+<script type="module">
+  import { SOURCES } from './js/sources.js';
+  document.getElementById('source-list').innerHTML = Object.values(SOURCES)
+    .map((s) => `<li><a href="${s.url}" target="_blank" rel="noopener">${s.title}</a><span class="src-url">${s.url}</span></li>`)
+    .join('');
+</script>
+</body>
+</html>

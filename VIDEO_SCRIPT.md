@@ -1,47 +1,44 @@
 # Video script (~5 min) — outline for recording
 
-Suggested setup: screen-record the live site (https://laynr.github.io/FedRAMP/), webcam
-optional. Times are rough; total ≈ 5:00.
+Screen-record the live site (https://laynr.github.io/FedRAMP/); webcam optional. ≈5:00 total.
 
-**0:00–0:40 — The hook (talking over the hero)**
-- "I build AI systems inside classified environments — but I'd never approached the
-  government from the outside, and I had exactly zero FedRAMP experience two days ago."
-- "So for this take-home I built the page I needed on day one: FedRAMP explained in the ten
-  minutes you actually have."
-- Point at the live badges: these numbers aren't typed in — they're computed from GSA's own
-  published data, right in the browser.
+**0:00–0:35 — Cold open on Pulse**
+- "Two days ago I had zero FedRAMP experience — I've built AI inside classified networks, but
+  never walked in the front door. This is the tool I built to learn it — and it runs on
+  FedRAMP's own published data."
+- Point at the hero tile: "Median 70 days to certified on the new 20x path, versus 361 on the
+  legacy path. Nobody publishes that number — this computes it from FedRAMP's event log, in
+  your browser."
 
-**0:40–1:30 — Why this is non-obvious (scroll to 'most of what you'll google is wrong')**
-- FedRAMP replaced its entire rulebook in June 2026. JAB: gone. Agency sponsors: no longer
-  required. Review times: a year → about five weeks. Most content online is stale.
-- "A static explainer would join that graveyard. So the medium is the message: FedRAMP 20x
-  is about machine-readable, continuously-validated security — this page practices that on
-  itself."
+**0:35–1:20 — The story of v1 (honest judgment beat)**
+- "First version was a beautifully cited 10-minute explainer. I reviewed it like a user and
+  killed it: wall of text, no reason to return. Version two asks two questions of itself: why
+  would anyone come back, and where's the actual engineering?"
 
-**1:30–2:30 — The 10-minute path (fast scroll-through)**
-- Show: who's-who cards → a checkpoint quiz (click the right answer) → the Rev5-vs-20x table
-  → the timeline with live countdowns ("these age gracefully — after the date passes they
-  flip to 'opened N days ago' with no redeploy") → the class picker.
+**1:20–2:20 — Why you come back: the watchlist**
+- Star two services live. Reload with a seeded old fingerprint (or pre-arranged): show
+  **"Since you were last here: Coralogix — PMO Review → FedRAMP Certified."**
+- "No backend, no accounts — a versioned localStorage schema and a pure diff function with
+  tests. Star your competitors and check back weekly."
 
-**2:30–3:30 — The KSI explorer (the tool half)**
-- "This isn't a copy-paste of a blog post — it renders FedRAMP's official rules JSON. When
-  the page says 46 indicators, it counted them at load."
-- Tick a few indicators, show the progress ring and per-class variations, export the gap
-  list. "Positioned honestly: a study aid, not an assessment."
+**2:20–3:20 — Where the engineering is: journeys**
+- Open a service profile: the dated journey timeline. "FedRAMP's changelog is messy real-world
+  event data — migration backfill, duplicates, journeys with no recorded start. The journey
+  engine documents its invariants, excludes what it can't trust and *counts* the exclusions —
+  they're in the method note, not swept under the rug."
+- Flip to "How long?": histogram, percentiles, fastest-journeys leaderboard (11 days!).
 
-**3:30–4:20 — The live marketplace + the data story**
-- Click "Fetch live from the GSA-published feed" — 4.4 MB official feed, recomputed
-  in-browser, freshness badge flips to 'live from source.'
-- Show the 2025 acceleration chart and the what-changed-recently feed ("events from
-  yesterday").
-- "Under the hood: one set of pure transforms shared by the browser, a zero-dependency CLI
-  that's also a Claude Code skill, tests, a weekly refresh workflow — and the snapshots are
-  republished as a tiny public JSON API from GitHub Pages."
+**3:20–4:10 — The toolchain, not just a webpage**
+- "The site is one consumer of the toolchain: a zero-dep CLI that's also a Claude Code skill,
+  16 tests including adversarial event-log fixtures, weekly CI refresh, and the snapshots ship
+  as a documented CORS-open JSON API anyone can build on."
+- Click "Fetch live from the GSA-published feed" — same transforms, recomputed in-browser.
+- Show the "What is FedRAMP?" drawer: "the explainer survived — 90 seconds, every claim cited,
+  each URL verified live because fedramp.gov's June restructure broke half the internet's links."
 
-**4:20–5:00 — Judgment & close (talking head or sources section on screen)**
-- "Rules I set: every claim cited to a URL we verified returns 200; anything unverifiable is
-  flagged, not asserted; zero claims about any specific company's compliance strategy; and
-  Claude tested the page itself in Chrome — clicked everything, read the console, fixed what
-  it found, then did it again post-deploy."
-- Time spent: ~X hours. "The thing I'm proudest of: it's the rare FedRAMP explainer that
-  gets *more* correct over time, not less."
+**4:10–5:00 — Close**
+- "Judgment calls I'd defend: vanilla and dependency-free for reviewability; static by scope —
+  a production version gets a backend, notifications, a real API service; and honesty as a
+  feature — small samples labeled, exclusions counted, 'unofficial' in the masthead."
+- Time spent: ~X hours, including tearing down a shipped v1 for taste. "It's the rare FedRAMP
+  resource that gets more correct over time — and gives you a reason to come back."

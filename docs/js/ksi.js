@@ -37,6 +37,10 @@ export function initKsi(root, ksi) {
     const C = 2 * Math.PI * 26;
     ring.style.strokeDasharray = `${(pct / 100) * C} ${C}`;
     ringLabel.textContent = `${done}/${totalIndicators}`;
+    if (done === totalIndicators && totalIndicators > 0) {
+      root.classList.add('celebrate'); // one tasteful moment; CSS no-ops under prefers-reduced-motion
+      setTimeout(() => root.classList.remove('celebrate'), 900);
+    }
   }
 
   function famProgress(f) {
