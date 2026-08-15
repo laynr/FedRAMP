@@ -69,6 +69,43 @@ function bindTipBackstop(container) {
   container.addEventListener('mouseleave', hideTip);
 }
 
+/**
+ * Screen-reader data table: every chart gets a visually-hidden <table> holding
+ * the same data as the marks, so the numbers aren't locked inside pixels.
+ * DOM-built with textContent only — labels are feed-derived hostile input.
+ * headers[0] names the row-label column; rows: [label, ...values].
+ */
+function dataTable(container, caption, headers, rows) {
+  const table = document.createElement('table');
+  table.className = 'visually-hidden';
+  const cap = document.createElement('caption');
+  cap.textContent = caption;
+  table.appendChild(cap);
+  const thead = document.createElement('thead');
+  const headRow = document.createElement('tr');
+  for (const h of headers) {
+    const th = document.createElement('th');
+    th.setAttribute('scope', 'col');
+    th.textContent = String(h);
+    headRow.appendChild(th);
+  }
+  thead.appendChild(headRow);
+  table.appendChild(thead);
+  const tbody = document.createElement('tbody');
+  for (const cells of rows) {
+    const tr = document.createElement('tr');
+    cells.forEach((c, i) => {
+      const cell = document.createElement(i === 0 ? 'th' : 'td');
+      if (i === 0) cell.setAttribute('scope', 'row');
+      cell.textContent = String(c);
+      tr.appendChild(cell);
+    });
+    tbody.appendChild(tr);
+  }
+  table.appendChild(tbody);
+  container.appendChild(table);
+}
+
 function renderEmptyState(container, message = 'No data to chart yet.') {
   const p = document.createElement('p');
   p.className = 'chart-empty';
@@ -84,7 +121,7 @@ function renderEmptyState(container, message = 'No data to chart yet.') {
  * opts.ariaLabel: caller-provided accessible description (defaults to a
  * generic "by year" phrasing — pass one whenever the x-axis isn't years).
  */
-export function stackedColumns(container, data, seriesNames, { valueLabel = null, ariaLabel = null } = {}) {
+export function stackedColumns(container, data, seriesNames, { valueLabel = null, ariaLabel = null, rowHeader = 'Category' } = {}) {
   container.innerHTML = '';
   hideTip(); // a re-render under the cursor must not strand a pinned tooltip
   bindTipBackstop(container);
@@ -164,15 +201,28 @@ export function stackedColumns(container, data, seriesNames, { valueLabel = null
 
   g.appendChild(el('line', { x1: 0, x2: iw, y1: ih, y2: ih, class: 'baseline' }));
   container.appendChild(svg);
+
+  // Same data, readable form: the SVG is a labelled image; this is the table.
+  const multi = seriesNames.length > 1;
+  dataTable(
+    container,
+    ariaLabel || `Column chart: ${seriesNames.join(' and ')} by year`,
+    [rowHeader, ...seriesNames.map((n) => n || 'Value'), ...(multi ? ['Total'] : [])],
+    data.map((d) => [
+      d.label,
+      ...d.values,
+      ...(multi ? [d.values.reduce((a, b) => a + b, 0)] : []),
+    ]),
+  );
 }
 
 /** Single-series column chart (histogram). data: [{label, count}] */
-export function columns(container, data, { seriesName = '', valueLabel = null, ariaLabel = null } = {}) {
+export function columns(container, data, { seriesName = '', valueLabel = null, ariaLabel = null, rowHeader = 'Category' } = {}) {
   stackedColumns(
     container,
     data.map((d) => ({ label: d.label, values: [d.count] })),
     [seriesName],
-    { valueLabel, ariaLabel },
+    { valueLabel, ariaLabel, rowHeader },
   );
 }
 
@@ -180,7 +230,7 @@ export function columns(container, data, { seriesName = '', valueLabel = null, a
  * Horizontal bar list (single series) with value labels at bar end.
  * data: [{label, sub, value}]
  */
-export function barList(container, data, { format = (v) => String(v) } = {}) {
+export function barList(container, data, { format = (v) => String(v), caption = 'Chart data' } = {}) {
   container.innerHTML = '';
   hideTip();
   bindTipBackstop(container);
@@ -207,4 +257,10 @@ export function barList(container, data, { format = (v) => String(v) } = {}) {
     row.addEventListener('mouseleave', hideTip);
     container.appendChild(row);
   }
+  dataTable(
+    container,
+    caption,
+    ['Item', 'Details', 'Value'],
+    data.map((d) => [d.label, d.sub ?? '', format(d.value)]),
+  );
 }

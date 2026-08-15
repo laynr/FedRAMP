@@ -42,4 +42,15 @@ If you need guaranteed freshness or the full records, please go straight to the 
   inactivity. If the newest data here looks stale, that's the likely cause — the tool's
   in-app "fetch live" button always pulls current data directly from the upstream feeds.
 
-*This is a convenience mirror built as a learning project, not an official FedRAMP resource.*
+## Provenance & license
+
+Source data is published by GSA's FedRAMP program ([github.com/FedRAMP](https://github.com/FedRAMP))
+and, as a U.S. Government work, is in the public domain in the United States
+([17 U.S.C. § 105](https://www.govinfo.gov/link/uscode/17/105)); factual records (names, dates,
+statuses) are uncopyrightable regardless. The snapshots and derived statistics here are
+**unofficial** — sanitized and pruned at generation, recomputed by this project. FedRAMP® is a
+registered trademark of GSA; this mirror is not licensed by, affiliated with, or endorsed by GSA.
+
+*A convenience mirror built as a learning project, not an official FedRAMP resource. For
+authoritative data, use the [official Marketplace](https://marketplace.fedramp.gov/) or the
+source repositories above.*

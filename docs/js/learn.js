@@ -28,15 +28,32 @@ for (const el of document.querySelectorAll('[data-deadline]')) {
 for (const quiz of document.querySelectorAll('.quiz')) {
   const answer = quiz.dataset.answer;
   const explain = quiz.querySelector('.quiz-explain');
+  // Live region present (and empty) from the start so screen readers announce
+  // the verdict — the color/checkmark styling alone is invisible to them.
+  const status = document.createElement('p');
+  status.className = 'visually-hidden';
+  status.setAttribute('role', 'status');
+  quiz.appendChild(status);
   for (const btn of quiz.querySelectorAll('button[data-opt]')) {
     btn.addEventListener('click', () => {
       const right = btn.dataset.opt === answer;
       for (const b of quiz.querySelectorAll('button[data-opt]')) {
         b.disabled = true;
-        if (b.dataset.opt === answer) b.classList.add('correct');
+        if (b.dataset.opt === answer) {
+          b.classList.add('correct');
+          // Name the correct answer in text, not just via green styling.
+          const tag = document.createElement('span');
+          tag.className = 'visually-hidden';
+          tag.textContent = ' (correct answer)';
+          b.appendChild(tag);
+        }
       }
       btn.classList.add(right ? 'correct' : 'incorrect');
       explain.hidden = false;
+      // Strip citation superscripts from the announcement (pure noise aloud).
+      const clone = explain.cloneNode(true);
+      for (const a of clone.querySelectorAll('a')) a.remove();
+      status.textContent = `${right ? 'Correct.' : 'Incorrect.'} ${clone.textContent.trim().replace(/\s+/g, ' ')}`;
     });
   }
 }
@@ -45,11 +62,26 @@ for (const quiz of document.querySelectorAll('.quiz')) {
 const picker = document.getElementById('class-picker');
 if (picker) {
   const cards = picker.querySelectorAll('.picker-card');
+  // Announce the revealed card — the reveal is otherwise silent to screen readers.
+  const pickerStatus = document.createElement('p');
+  pickerStatus.className = 'visually-hidden';
+  pickerStatus.setAttribute('role', 'status');
+  picker.appendChild(pickerStatus);
   for (const btn of picker.querySelectorAll('button[data-pick]')) {
     btn.addEventListener('click', () => {
-      for (const b of picker.querySelectorAll('button[data-pick]')) b.classList.remove('active');
+      for (const b of picker.querySelectorAll('button[data-pick]')) {
+        b.classList.remove('active');
+        b.setAttribute('aria-pressed', 'false');
+      }
       btn.classList.add('active');
+      btn.setAttribute('aria-pressed', 'true');
       for (const c of cards) c.hidden = c.dataset.card !== btn.dataset.pick;
+      const shown = picker.querySelector('.picker-card:not([hidden])');
+      if (shown) {
+        const clone = shown.cloneNode(true);
+        for (const a of clone.querySelectorAll('a')) a.remove();
+        pickerStatus.textContent = clone.textContent.trim().replace(/\s+/g, ' ');
+      }
     });
   }
 }

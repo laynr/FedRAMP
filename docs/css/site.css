@@ -2,27 +2,32 @@
    query and the explicit toggle, so the toggle wins in both directions. */
 :root {
   color-scheme: light;
-  --page: #f9f9f7;
-  --surface: #fcfcfb;
-  --ink: #0b0b0b;
-  --ink-2: #52514e;
-  --muted: #898781;
-  --grid: #e1e0d9;
-  --baseline: #c3c2b7;
-  --border: rgba(11, 11, 11, 0.1);
+  /* Warm "book" neutrals: paper-ivory grounds, warm near-black ink (never pure
+     white/black), a single coral accent used sparingly. Contrast verified WCAG
+     AA: ink 17.5:1, --ink-2 6.3:1, --accent-ink links 5.6:1, white-on-accent
+     4.05:1 (UI/large). Chart series stay the dataviz-validated blue/orange —
+     they read cleanly on ivory and keep their colorblind-safe separation. */
+  --page: #f4f2ec;
+  --surface: #faf9f5;
+  --ink: #141413;
+  --ink-2: #5e5d59;
+  --muted: #a4a299;
+  --grid: #e6e3d9;
+  --baseline: #d1cfc5;
+  --border: rgba(20, 20, 19, 0.12);
   --series-1: #2a78d6;
   --series-2: #eb6834;
-  --accent: #2a78d6;
-  --accent-ink: #1c5cab;
-  --good: #0ca30c;
-  --good-text: #006300;
-  --critical: #d03b3b;
-  --star: #eda100;
-  --wash: rgba(42, 120, 214, 0.08);
-  --shadow: 0 10px 34px rgba(0, 0, 0, 0.14);
+  --accent: #c6613f;
+  --accent-ink: #a8451d;
+  --good: #4f7a3a;
+  --good-text: #3d6b28;
+  --critical: #c0392b;
+  --star: #c98a2e;
+  --wash: rgba(198, 97, 63, 0.08);
+  --shadow: 0 10px 34px rgba(20, 20, 19, 0.12);
   /* --muted is decorative (axis ticks, borders-adjacent chrome); --muted-text
      is for readable secondary copy and meets WCAG AA (>=4.5:1) on --surface. */
-  --muted-text: #6e6c66;
+  --muted-text: #6b6960;
 }
 /* The dark token set appears twice on purpose: once under the OS preference
    (media query) and once under the explicit data-theme toggle. CSS custom
@@ -33,48 +38,48 @@
 @media (prefers-color-scheme: dark) {
   :root:where(:not([data-theme='light'])) {
     color-scheme: dark;
-    --page: #0d0d0d;
-    --surface: #1a1a19;
-    --ink: #ffffff;
-    --ink-2: #c3c2b7;
-    --muted: #898781;
-    --grid: #2c2c2a;
-    --baseline: #383835;
-    --border: rgba(255, 255, 255, 0.1);
+    --page: #131210;
+    --surface: #1f1e1c;
+    --ink: #faf9f5;
+    --ink-2: #c6c4ba;
+    --muted: #86847c;
+    --grid: #302e2a;
+    --baseline: #3c3a35;
+    --border: rgba(250, 249, 245, 0.12);
     --series-1: #3987e5;
     --series-2: #d95926;
-    --accent: #3987e5;
-    --accent-ink: #86b6ef;
-    --good: #0ca30c;
-    --good-text: #0ca30c;
-    --critical: #d03b3b;
-    --star: #c98500;
-    --wash: rgba(57, 135, 229, 0.14);
+    --accent: #d97757;
+    --accent-ink: #e8a07f;
+    --good: #6fae52;
+    --good-text: #7fbf62;
+    --critical: #e0685a;
+    --star: #d1a24f;
+    --wash: rgba(217, 119, 87, 0.16);
     --shadow: 0 10px 34px rgba(0, 0, 0, 0.5);
-    --muted-text: #a5a39c;
+    --muted-text: #a8a69c;
   }
 }
 :root[data-theme='dark'] {
   color-scheme: dark;
-  --page: #0d0d0d;
-  --surface: #1a1a19;
-  --ink: #ffffff;
-  --ink-2: #c3c2b7;
-  --muted: #898781;
-  --grid: #2c2c2a;
-  --baseline: #383835;
-  --border: rgba(255, 255, 255, 0.1);
+  --page: #131210;
+  --surface: #1f1e1c;
+  --ink: #faf9f5;
+  --ink-2: #c6c4ba;
+  --muted: #86847c;
+  --grid: #302e2a;
+  --baseline: #3c3a35;
+  --border: rgba(250, 249, 245, 0.12);
   --series-1: #3987e5;
   --series-2: #d95926;
-  --accent: #3987e5;
-  --accent-ink: #86b6ef;
-  --good: #0ca30c;
-  --good-text: #0ca30c;
-  --critical: #d03b3b;
-  --star: #c98500;
-  --wash: rgba(57, 135, 229, 0.14);
+  --accent: #d97757;
+  --accent-ink: #e8a07f;
+  --good: #6fae52;
+  --good-text: #7fbf62;
+  --critical: #e0685a;
+  --star: #d1a24f;
+  --wash: rgba(217, 119, 87, 0.16);
   --shadow: 0 10px 34px rgba(0, 0, 0, 0.5);
-  --muted-text: #a5a39c;
+  --muted-text: #a8a69c;
 }
 
 * { box-sizing: border-box; }
@@ -262,8 +267,8 @@ main { max-width: 1080px; margin: 0 auto; padding: 18px 20px 60px; }
 .tl-status { font-size: 14.5px; }
 .agency-list { columns: 2; margin: 6px 0; padding-left: 18px; font-size: 13.5px; color: var(--ink-2); }
 .kv { width: 100%; border-collapse: collapse; font-size: 14px; }
-.kv td { padding: 6px 8px 6px 0; border-top: 1px solid var(--grid); vertical-align: top; }
-.kv td:first-child { color: var(--muted-text); white-space: nowrap; }
+.kv td, .kv th { padding: 6px 8px 6px 0; border-top: 1px solid var(--grid); vertical-align: top; }
+.kv td:first-child, .kv th[scope='row'] { color: var(--muted-text); white-space: nowrap; font-weight: 400; text-align: left; }
 
 /* ---------- agencies ---------- */
 .agency-grid { display: grid; grid-template-columns: minmax(230px, 1fr) 1.6fr; gap: 14px; align-items: start; }
@@ -289,7 +294,7 @@ main { max-width: 1080px; margin: 0 auto; padding: 18px 20px 60px; }
 .compare { width: 100%; border-collapse: collapse; font-size: 13.5px; }
 .compare th, .compare td { text-align: left; padding: 7px 8px; border-top: 1px solid var(--grid); vertical-align: top; }
 .compare th { color: var(--muted-text); font-weight: 600; }
-.compare td:first-child { color: var(--muted-text); white-space: nowrap; }
+.compare td:first-child, .compare th[scope='row'] { color: var(--muted-text); white-space: nowrap; }
 
 /* ---------- charts ---------- */
 .legend { display: flex; gap: 16px; font-size: 13px; color: var(--ink-2); margin: 6px 0; }
@@ -367,7 +372,37 @@ footer { border-top: 1px solid var(--border); padding: 20px; color: var(--muted-
 }
 .tab:focus-visible, .ghost-btn:focus-visible, .pill:focus-visible { border-radius: 999px; }
 
+/* ---------- screen-reader utilities ---------- */
+/* Visually hidden, still read by screen readers (WebAIM clip pattern). */
+.visually-hidden {
+  position: absolute !important;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+/* Skip link: first focusable element; hidden until keyboard focus lands on it. */
+.skip-link {
+  position: absolute;
+  top: -48px;
+  left: 8px;
+  z-index: 200;
+  background: var(--ink);
+  color: var(--page);
+  padding: 8px 14px;
+  border-radius: 0 0 8px 8px;
+  font-size: 14px;
+  text-decoration: none;
+}
+.skip-link:focus { top: 0; }
+
 /* ---------- header nav links (learn/about) ---------- */
+.header-nav { display: flex; align-items: center; gap: 14px; }
 .header-link {
   color: var(--ink-2); text-decoration: none; font-size: 14px; padding: 6px 8px;
 }
@@ -393,7 +428,7 @@ main.learn, main.about { max-width: 820px; }
 .section-kicker .min { font-weight: 600; color: var(--accent-ink); }
 .card-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(215px, 1fr)); gap: 12px; margin: 16px 0; }
 .role-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; }
-.role-card h4 { margin: 0 0 6px; }
+.role-card h3, .role-card h4 { margin: 0 0 6px; font-size: 1em; }
 .role-card p { margin: 0; color: var(--ink-2); font-size: 14px; }
 .role-card .aka { color: var(--muted-text); font-size: 12.5px; }
 .table-scroll { overflow-x: auto; }
@@ -413,7 +448,12 @@ main.learn, main.about { max-width: 820px; }
 .quiz button.correct { border-color: var(--good); box-shadow: inset 3px 0 0 var(--good); }
 .quiz button.incorrect { border-color: var(--critical); box-shadow: inset 3px 0 0 var(--critical); }
 .quiz-explain { color: var(--ink-2); font-size: 14px; }
-.quiz-explain::before { content: '✓ '; color: var(--good-text); font-weight: 700; }
+.quiz-explain::before {
+  content: '✓ ';
+  content: '✓ ' / ''; /* alt-text syntax: decorative for AT; first line is the fallback */
+  color: var(--good-text);
+  font-weight: 700;
+}
 
 /* ---------- class picker (learn page) ---------- */
 #class-picker .picker-options { display: flex; flex-wrap: wrap; gap: 8px; }
@@ -424,7 +464,7 @@ main.learn, main.about { max-width: 820px; }
 #class-picker button[data-pick]:hover { background: var(--wash); }
 #class-picker button.active { border-color: var(--accent); background: var(--wash); }
 .picker-card { margin-top: 14px; }
-.picker-card h4 { margin-top: 0; }
+.picker-card h3, .picker-card h4 { margin-top: 0; }
 
 /* ---------- sources / about ---------- */
 #source-list { font-size: 14px; }

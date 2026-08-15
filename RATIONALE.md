@@ -1,4 +1,4 @@
-# Design rationale — FedRAMP, an unofficial explorer
+# Design rationale — OnRamp, an unofficial FedRAMP explorer
 
 *Written doc accompanying the ~5 minute video. Take-home for Anthropic, Staff+ SWE (Public
 Sector). Live at https://laynr.github.io/FedRAMP/*

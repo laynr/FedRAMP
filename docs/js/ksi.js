@@ -33,6 +33,7 @@ export function initKsi(root, ksi) {
   const famNav = root.querySelector('#ksi-families');
   const detail = root.querySelector('#ksi-detail');
   const ring = root.querySelector('#ksi-ring');
+  const ringWrap = root.querySelector('#ksi-ring-wrap');
   const ringLabel = root.querySelector('#ksi-ring-label');
   const meta = root.querySelector('#ksi-meta');
   let activeFam = ksi.families[0]?.id;
@@ -45,12 +46,20 @@ export function initKsi(root, ksi) {
   detail.setAttribute('role', 'tabpanel');
   detail.setAttribute('tabindex', '0');
 
+  // Progress semantics: the ring + "12/46" text are one unit for a screen reader.
+  ringWrap.setAttribute('role', 'progressbar');
+  ringWrap.setAttribute('aria-label', 'Self-check progress');
+  ringWrap.setAttribute('aria-valuemin', '0');
+  ringWrap.setAttribute('aria-valuemax', String(totalIndicators));
+
   function updateRing() {
     const done = checks.size;
     const pct = totalIndicators ? Math.round((done / totalIndicators) * 100) : 0;
     const C = 2 * Math.PI * 26;
     ring.style.strokeDasharray = `${(pct / 100) * C} ${C}`;
     ringLabel.textContent = `${done}/${totalIndicators}`;
+    ringWrap.setAttribute('aria-valuenow', String(done));
+    ringWrap.setAttribute('aria-valuetext', `${done} of ${totalIndicators} indicators checked`);
     if (done === totalIndicators && totalIndicators > 0) {
       root.classList.add('celebrate'); // one tasteful moment; CSS no-ops under prefers-reduced-motion
       setTimeout(() => root.classList.remove('celebrate'), 900);
@@ -118,7 +127,7 @@ export function initKsi(root, ksi) {
     const f = ksi.families.find((x) => x.id === activeFam);
     if (!f) return;
     detail.setAttribute('aria-labelledby', famTabId(f.id));
-    detail.innerHTML = `<h4>${esc(f.id)} — ${esc(f.name)}</h4>`;
+    detail.innerHTML = `<h3>${esc(f.id)} — ${esc(f.name)}</h3>`;
     for (const ind of f.indicators) {
       const item = document.createElement('label');
       item.className = 'ksi-ind';
@@ -128,7 +137,7 @@ export function initKsi(root, ksi) {
             .join(' · ')}</p>`
         : '';
       item.innerHTML = `
-        <input type="checkbox" ${checks.has(ind.id) ? 'checked' : ''} aria-label="Mark ${esc(ind.id)} as met (study aid)">
+        <input type="checkbox" ${checks.has(ind.id) ? 'checked' : ''} aria-label="Mark ${esc(ind.id)} ${esc(ind.name)} as met (study aid)">
         <span class="ksi-ind-body">
           <span class="ksi-ind-head"><code>${esc(ind.id)}</code> <strong></strong></span>
           <span class="ksi-ind-statement"></span>

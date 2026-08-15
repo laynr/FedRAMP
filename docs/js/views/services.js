@@ -40,8 +40,9 @@ export function star(id) {
   // repaint any star buttons for this id
   for (const btn of document.querySelectorAll(`[data-star="${CSS.escape(id)}"]`)) {
     btn.classList.toggle('starred', isStarred(id));
-    btn.textContent = isStarred(id) ? '★' : '☆';
+    btn.innerHTML = `<span aria-hidden="true">${isStarred(id) ? '★' : '☆'}</span>`;
     btn.setAttribute('aria-pressed', String(isStarred(id)));
+    btn.setAttribute('aria-label', starLabel(id));
   }
 }
 
@@ -56,8 +57,15 @@ export function markVisited() {
   watch = advanceVisit(watch);
 }
 
+// Every star gets a name with CONTEXT — 50 rows of "Watch this service" is
+// useless in a screen reader's buttons list.
+const starLabel = (id) => {
+  const name = state.productsById.get(id)?.cso ?? 'this service';
+  return isStarred(id) ? `Stop watching ${name}` : `Watch ${name}`;
+};
+
 const starBtn = (id) =>
-  `<button class="star ${isStarred(id) ? 'starred' : ''}" data-star="${esc(id)}" aria-pressed="${isStarred(id)}" aria-label="Watch this service" title="Watch: next visit starts with what changed">${isStarred(id) ? '★' : '☆'}</button>`;
+  `<button class="star ${isStarred(id) ? 'starred' : ''}" data-star="${esc(id)}" aria-pressed="${isStarred(id)}" aria-label="${esc(starLabel(id))}" title="Watch: next visit starts with what changed"><span aria-hidden="true">${isStarred(id) ? '★' : '☆'}</span></button>`;
 
 // ---------- list ----------
 
@@ -115,7 +123,7 @@ function draw() {
         <span class="svc-name"><strong>${esc(p.cso)}</strong><span>${esc(p.csp)}</span></span>
         <span class="pill ${p.impact?.startsWith('20x') ? 'pill-20x' : ''}">${esc(p.impact ?? '—')}</span>
         <span class="pill">${esc(p.status ?? '—')}</span>
-        <span class="svc-reuse" title="reuses">${fmt(p.reuse)}↻</span>
+        <span class="svc-reuse" title="reuses">${fmt(p.reuse)}<span class="visually-hidden"> reuses</span><span aria-hidden="true">↻</span></span>
       </button>
     </div>`).join('');
   countEl.textContent = `${Math.min(shown, rows.length)} of ${fmt(rows.length)} services — click one for its story`;
@@ -196,7 +204,7 @@ export function openServiceDrawer(id) {
   drawer.innerHTML = `
     <div class="drawer-head">
       <div>
-        <h2>${esc(p.cso)}</h2>
+        <h2 id="svc-drawer-title">${esc(p.cso)}</h2>
         <p class="sub">${esc(p.csp)}</p>
       </div>
       ${starBtn(p.id)}
@@ -215,12 +223,16 @@ export function openServiceDrawer(id) {
     ${reuseUsers.length ? userList(reuseUsers) : atoUsers.length ? userList(atoUsers) : '<p class="sub">No agency mappings published for this service yet.</p>'}
     <h3>Details</h3>
     <table class="kv">
-      ${p.assessor ? `<tr><td>Assessor (3PAO)</td><td>${esc(p.assessor)}</td></tr>` : ''}
-      ${p.deployment ? `<tr><td>Deployment</td><td>${esc(p.deployment)}</td></tr>` : ''}
-      ${p.models?.length ? `<tr><td>Service model</td><td>${esc(p.models.join(', '))}</td></tr>` : ''}
-      <tr><td>Official listing</td><td><a href="https://marketplace.fedramp.gov/products/${encodeURIComponent(p.id)}" target="_blank" rel="noopener">marketplace.fedramp.gov ↗</a></td></tr>
+      <caption class="visually-hidden">Service details</caption>
+      ${p.assessor ? `<tr><th scope="row">Assessor (3PAO)</th><td>${esc(p.assessor)}</td></tr>` : ''}
+      ${p.deployment ? `<tr><th scope="row">Deployment</th><td>${esc(p.deployment)}</td></tr>` : ''}
+      ${p.models?.length ? `<tr><th scope="row">Service model</th><td>${esc(p.models.join(', '))}</td></tr>` : ''}
+      <tr><th scope="row">Official listing</th><td><a href="https://marketplace.fedramp.gov/products/${encodeURIComponent(p.id)}" target="_blank" rel="noopener">marketplace.fedramp.gov <span aria-hidden="true">↗</span><span class="visually-hidden">(opens in a new tab)</span></a></td></tr>
     </table>`;
 
+  // The dialog's accessible name is the service name (the injected <h2>).
+  drawer.setAttribute('aria-labelledby', 'svc-drawer-title');
+  drawer.removeAttribute('aria-label');
   drawer.querySelector('[data-star]')?.addEventListener('click', (e) => {
     e.stopPropagation();
     star(id);

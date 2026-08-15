@@ -30,9 +30,9 @@ function renderWatchCard() {
 
   if (!watch.starred.length) {
     el.innerHTML = `<div class="panel watch empty">
-      <strong>Make this page yours:</strong> star <span class="star starred">★</span> the services you care about
+      <strong>Make this page yours:</strong> star <span class="star starred" aria-hidden="true">★</span> the services you care about
       (yours, competitors, dependencies) — your next visit starts with what changed.
-      <button class="ghost-btn" data-goto="services">Browse services →</button>
+      <button class="ghost-btn" data-goto="services">Browse services <span aria-hidden="true">→</span></button>
     </div>`;
     el.querySelector('[data-goto]').addEventListener('click', () => document.querySelector('.tab[data-view="services"]').click());
     return;
@@ -67,7 +67,7 @@ function renderWatchCard() {
         const parts = d.changes.map((c) =>
           c.field === 'listed'
             ? '<strong>no longer in the marketplace feed</strong>'
-            : `${c.field === 'latest' ? 'status event' : c.field}: ${esc(c.from)} → <strong>${esc(c.to)}</strong>`
+            : `${c.field === 'latest' ? 'status event' : c.field}: ${esc(c.from)} <span aria-hidden="true">→</span><span class="visually-hidden">changed to</span> <strong>${esc(c.to)}</strong>`
         ).join(' · ');
         const name = `<span class="watch-name">${esc(p?.cso ?? d.id)}</span>`;
         // Only resolvable services get a button (there is a profile to open).
@@ -127,12 +127,12 @@ function renderStream() {
   feed.innerHTML = (state.activity ?? []).slice(0, 22).map((e) => {
     if (e.kind === 'reuse') {
       return `<li><span class="feed-date">${relativeDate(e.date)}</span>
-        <span class="feed-icon" title="agency adoption">🏛️</span>
+        <span class="feed-icon" title="agency adoption" aria-hidden="true">🏛️</span>
         <span class="feed-what"><strong>${esc(e.agency)}</strong> adopted ${esc(e.cso)} <span class="sub">(${esc(e.csp)})</span></span></li>`;
     }
     return `<li><span class="feed-date">${relativeDate(e.date)}</span>
-      <span class="feed-icon" title="status change">＋</span>
-      <span class="feed-what">${esc(e.cso)} <span class="sub">(${esc(e.csp)})</span> → <strong>${esc(e.to)}</strong>${e.class ? ` <span class="pill">${esc(e.class)}</span>` : ''}</span></li>`;
+      <span class="feed-icon" title="status change" aria-hidden="true">＋</span>
+      <span class="feed-what">${esc(e.cso)} <span class="sub">(${esc(e.csp)})</span> <span aria-hidden="true">→</span><span class="visually-hidden">changed to</span> <strong>${esc(e.to)}</strong>${e.class ? ` <span class="pill">${esc(e.class)}</span>` : ''}</span></li>`;
   }).join('');
 }
 
@@ -150,6 +150,7 @@ function renderYearsChart() {
   stackedColumns(document.getElementById('chart-years'), data, ['Rev5 & legacy paths', 'FedRAMP 20x'], {
     valueLabel: (v) => `${v}`,
     ariaLabel: 'Authorized services per year, split by path',
+    rowHeader: 'Year',
   });
 }
 
@@ -183,7 +184,7 @@ function renderTopReused() {
       sub: `${t.csp ?? ''}${t.impact ? ` · ${t.impact}` : ''}`,
       value: t.reuse,
     })),
-    { format: (v) => `${fmt(v)} reuses` }
+    { format: (v) => `${fmt(v)} reuses`, caption: 'Most-reused authorizations' }
   );
 }
 
@@ -194,12 +195,20 @@ function wireLiveButton() {
   if (!btn || btn.dataset.wired) return; // renderPulse re-runs after live refresh; wire once
   btn.dataset.wired = '1';
   const idleLabel = btn.textContent;
+  // Mirror the outcome into a visually-hidden polite live region — a screen
+  // reader hears the result even though only the button's text changes.
+  const announce = (msg) => {
+    const status = document.getElementById('refresh-status');
+    if (status) status.textContent = msg;
+  };
   btn.addEventListener('click', async () => {
     btn.disabled = true;
     btn.textContent = 'Fetching from GSA’s published feed…';
+    announce('');
     try {
       await refreshLive(); // onStateChange re-renders every view, including this one
       btn.textContent = 'Refreshed from source ✓';
+      announce(`Refreshed from source. ${freshnessLabel()}`);
       setTimeout(() => {
         btn.textContent = idleLabel;
         btn.disabled = false;
@@ -207,6 +216,7 @@ function wireLiveButton() {
     } catch (err) {
       console.error(err);
       btn.textContent = 'Live fetch failed — still on bundled snapshot';
+      announce('Live fetch failed — still on bundled snapshot.');
       btn.disabled = false;
       setTimeout(() => {
         btn.textContent = idleLabel;

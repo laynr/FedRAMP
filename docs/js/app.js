@@ -17,12 +17,18 @@ import { openDrawer, closeDrawers, storage } from './ui.js';
 // ---------- theme (stored value is untrusted — accept only known themes) ----------
 const savedTheme = storage.get('theme');
 if (savedTheme === 'light' || savedTheme === 'dark') document.documentElement.dataset.theme = savedTheme;
-document.getElementById('theme-toggle').addEventListener('click', () => {
-  const cur = document.documentElement.dataset.theme ||
-    (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
-  const next = cur === 'dark' ? 'light' : 'dark';
+const themeToggle = document.getElementById('theme-toggle');
+const currentTheme = () => document.documentElement.dataset.theme ||
+  (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+// Screen readers get a label that says what the button will DO, kept in sync.
+const labelThemeToggle = () =>
+  themeToggle.setAttribute('aria-label', currentTheme() === 'dark' ? 'Switch to light theme' : 'Switch to dark theme');
+labelThemeToggle();
+themeToggle.addEventListener('click', () => {
+  const next = currentTheme() === 'dark' ? 'light' : 'dark';
   document.documentElement.dataset.theme = next;
   storage.set('theme', next);
+  labelThemeToggle();
 });
 
 // ---------- tabs / routing ----------
@@ -40,6 +46,7 @@ for (const t of tabs) {
 for (const [n, el] of Object.entries(views)) {
   el.setAttribute('role', 'tabpanel');
   el.setAttribute('aria-labelledby', `tab-${n}`);
+  el.setAttribute('tabindex', '0'); // tabs pattern: Tab moves from the tablist into the panel
 }
 
 let activeView = 'pulse';

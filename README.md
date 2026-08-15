@@ -1,4 +1,4 @@
-# FedRAMP — unofficial explorer
+# OnRamp — an unofficial FedRAMP explorer
 
 **Live: https://laynr.github.io/FedRAMP/**
 
@@ -82,9 +82,28 @@ node tools/fedramp-data.mjs journeys --fastest # the CLI, dogfooded throughout
 node tools/check-links.mjs                     # citation link audit (also runs on a schedule in CI)
 ```
 
+## Reusable: the `fedramp-data` Claude Code skill
+
+`tools/fedramp-data.mjs` is documented as a **standalone Claude Code skill** in
+[`.claude/skills/fedramp-data/`](.claude/skills/fedramp-data/SKILL.md) — useful on its own, not just
+to this site. Drop the `.claude/skills/fedramp-data/` folder (plus `tools/fedramp-data.mjs`,
+`docs/js/transforms.js`, `docs/js/feeds.js`) into any repo and Claude Code can answer FedRAMP
+marketplace/KSI/journey questions from the live official feeds instead of guessing:
+
+```
+node tools/fedramp-data.mjs products --impact "20x Moderate"   # who's authorized under 20x
+node tools/fedramp-data.mjs journeys --fastest                  # fastest authorizations on record
+node tools/fedramp-data.mjs ksi CNA                             # a KSI family's indicators + NIST controls
+```
+
+Zero dependencies, safe by construction (sanitizes hostile input, aborts snapshots that contain
+suspicious content). See the skill file for the full command list.
+
 ## Honesty notes
 
-Unofficial; not affiliated with GSA or the FedRAMP program. Duration analytics carry a visible
-method note (the 20x sample is small and early). No claims about any company's compliance
-strategy. No cost figures — none exist officially. Corrections:
+Unofficial; not affiliated with or endorsed by GSA or the FedRAMP program. FedRAMP® is a
+registered trademark of GSA; source data is a U.S. Government work in the public domain
+(17 U.S.C. § 105) and derived stats here are unofficial. Duration analytics carry a visible
+method note (small 20x sample; right-censored; path-attribution is any-event-20x). No claims
+about any company's compliance strategy. No cost figures — none exist officially. Corrections:
 [open an issue](https://github.com/laynr/FedRAMP/issues). Design write-up: [RATIONALE.md](RATIONALE.md).

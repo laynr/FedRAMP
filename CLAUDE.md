@@ -1,4 +1,4 @@
-# FedRAMP — unofficial explorer
+# OnRamp — an unofficial FedRAMP explorer
 
 A take-home project for Anthropic's Public Sector Staff+ SWE role: a live, tool-first app for
 exploring FedRAMP (watchlist, journeys, duration analytics, KSI study aid) plus a Learn page,
@@ -45,3 +45,18 @@ all built on FedRAMP's own machine-readable data. Hosted on GitHub Pages.
   `cert_type` / `cert_path` values include the literal string `20x`. Match accordingly.
 - **Percentile is nearest-rank: `ceil(p * n / 100) - 1`.** We shipped `floor()` first and it
   skewed the headline median — an off-by-one-rank that survived until the hardening review.
+- **GSA's FedRAMP brand guide bars non-participants from using "FedRAMP" in a website title**
+  (Brand Guide v2.1; USPTO reg. 5725620). Hence the product name "OnRamp" with "FedRAMP" as
+  descriptor only, plus the trademark-acknowledgment + public-domain provenance lines in every
+  footer. Never add the FedRAMP logo/stamp — that's the bright line requiring written permission.
+- **Government data is public domain (17 U.S.C. § 105), not "©".** Never write "Data © GSA";
+  say it's a U.S. Government work in the public domain, and that derived stats are unofficial.
+- **Name statistical biases outright.** The 70-vs-327 comparison is right-censored (the 20x
+  program is too young to contain long journeys) and path-attribution is any-event-20x; both
+  are stated in the method note. Hedging one sentence short of the mechanism reads as spin.
+- **Screen-reader duty on every chart/dynamic update**: visually-hidden data table per chart,
+  `role=status` live regions for async results, contextual button names ("Watch ${cso}", never
+  fifty identical labels), aria-hidden on decorative glyphs/emoji. The accessibility tree
+  (`read_page` in Chrome MCP) is the JAWS-eye view — verify there, not by assumption.
+- **Multi-agent review works** (see AGENTS.md): adversarial read-only reviewers before shipping
+  caught XSS, a wrong headline number, and a dead deploy pipeline that a single pass missed.

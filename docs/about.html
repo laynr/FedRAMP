@@ -9,22 +9,27 @@
      the security note below. -->
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https://cdn.jsdelivr.net https://raw.githubusercontent.com; base-uri 'none'; form-action 'none'; object-src 'none'">
 <meta name="referrer" content="strict-origin-when-cross-origin">
-<title>Sources &amp; method — FedRAMP unofficial explorer</title>
+<title>Sources &amp; method — OnRamp</title>
 <link rel="stylesheet" href="css/site.css">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📡</text></svg>">
 </head>
 <body>
+
+<a class="skip-link" href="#main">Skip to main content</a>
+
 <header class="app">
   <div class="brand-block">
-    <a class="brand plain-link" href="./">FedRAMP</a>
-    <span class="unofficial">unofficial explorer</span>
+    <a class="brand plain-link" href="./">OnRamp</a>
+    <span class="unofficial">an unofficial FedRAMP explorer</span>
   </div>
   <span class="spacer"></span>
-  <a class="header-link" href="learn.html">Learn</a>
-  <a class="ghost-btn plain-link" href="./">← Back to the tool</a>
+  <nav class="header-nav" aria-label="Pages">
+    <a class="header-link" href="learn.html">Learn</a>
+    <a class="ghost-btn plain-link" href="./"><span aria-hidden="true">←</span> Back to the tool</a>
+  </nav>
 </header>
 
-<main class="about">
+<main id="main" tabindex="-1" class="about">
   <h1>Sources &amp; method</h1>
   <p>
     This is a learning artifact built by an engineer approaching FedRAMP from the outside, in the
@@ -91,9 +96,10 @@
 </main>
 
 <footer>
-  <p>Built by <a href="https://github.com/laynr">@laynr</a> with Claude Code, as part of an
-  Anthropic take-home assignment. Data © U.S. General Services Administration via its published
-  feeds. <a href="https://github.com/laynr/FedRAMP">Source on GitHub</a></p>
+  <p>OnRamp is built by <a href="https://github.com/laynr">@laynr</a> with Claude Code.
+    FedRAMP&reg; is a registered trademark of the U.S. General Services Administration; this site is not licensed by, affiliated with, or endorsed by GSA or the FedRAMP program.
+    Source data is published by GSA's FedRAMP program and, as a U.S. Government work, is in the public domain in the United States (17 U.S.C. &sect; 105); this site's snapshots and derived statistics are unofficial.
+    <a href="https://github.com/laynr/FedRAMP">Source on GitHub</a></p>
 </footer>
 
 <script type="module" src="js/about.js"></script>
