@@ -68,6 +68,7 @@ Screen-record the live site (https://laynr.github.io/FedRAMP/); webcam optional.
 - "Judgment calls I'd defend: vanilla and dependency-free for reviewability; static by scope —
   a production version gets a backend, notifications, a real API service; and honesty as a
   feature — small samples labeled, exclusions counted, 'unofficial' in the masthead."
-- Time spent: <!-- LAYNE: state hours here when recording --> ~__ hours, including tearing down
-  a shipped v1 for taste. "It's the rare FedRAMP resource that gets more correct over time —
-  and gives you a reason to come back."
+- Time spent: "About 2.6 hours wall-clock — the commit timestamps are the receipt, v1 through
+  the rebrand. Much of it was agents working while I was away; my time was judgment, not typing.
+  I optimized for leverage because that's what the brief rewards." "It's the rare FedRAMP
+  resource that gets more correct over time — and gives you a reason to come back."

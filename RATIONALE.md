@@ -86,8 +86,18 @@ can query FedRAMP state; agency-level adoption trends over time.
 
 ## Time spent
 
-<!-- LAYNE: fill in hours before submission (wall-clock from repo creation to submission) -->
-Approximately **__ hours**, including a shipped v1 that was deliberately torn down for taste.
+**Wall-clock: ~2.6 hours** — the git history is the honest record: first commit 10:31, last
+13:12 on 2026-08-15 (`git log --format='%ci'`), spanning a shipped v1, a v2 teardown-and-pivot,
+a v3 hardening pass, and the OnRamp rebrand.
+
+That number deserves an asterisk in both directions. It understates *elapsed* time: much of the
+work ran as background AI agents (research, review, per-file implementation) while I was away
+from the keyboard, so calendar time was longer than 2.6 hours. But it also overstates *my* hands-
+on effort in the usual sense — my actual work was direction and judgment, not typing: choosing
+the concept, killing v1 on taste, setting the accuracy and humility rules, running an adversarial
+review pass on my own finished work, and deciding what to keep. I leaned into orchestration
+precisely because the brief rewards leverage; the interesting measure isn't hours logged, it's
+the judgment applied per hour. I'd rather show the real commit timestamps than pad a number.
 
 ## AI usage
 
