@@ -1,0 +1,337 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- CSP: no external scripts/styles/frames; network access only to self plus the
+     two GSA-published data CDNs. style-src carries 'unsafe-inline' only because
+     the tool's chart bars set width via an inline style attribute; see about.html. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https://cdn.jsdelivr.net https://raw.githubusercontent.com; base-uri 'none'; form-action 'none'; object-src 'none'">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<title>FedRAMP in 10 minutes — unofficial explainer</title>
+<meta name="description" content="A 10-minute, source-cited explainer of FedRAMP as it works today — the shortest honest path from zero to understanding the 2026 rules, 20x, and KSIs.">
+<link rel="stylesheet" href="css/site.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📡</text></svg>">
+</head>
+<body>
+
+<header class="app">
+  <div class="brand-block">
+    <a class="brand plain-link" href="./">FedRAMP</a>
+    <span class="unofficial">unofficial explorer</span>
+  </div>
+  <span class="spacer"></span>
+  <a class="header-link" href="about.html">About</a>
+  <a class="ghost-btn plain-link" href="./">← Back to the tool</a>
+</header>
+
+<main class="learn">
+  <!-- ============================== HERO ============================== -->
+  <div class="hero">
+    <h1>FedRAMP, explained in the 10 minutes you actually have</h1>
+    <p class="lede">
+      I'm an engineer who has built AI systems <em>inside</em> classified environments but had
+      never once approached the U.S. government from the outside. This page is what I wish I'd
+      found on day one: the shortest honest path to understanding FedRAMP — as it works
+      <strong>today</strong>, not as it worked when most blog posts were written. Every claim is
+      cited to an official source, and the numbers in the companion tool are computed from
+      FedRAMP's own published data<a data-cite="mkt-data"></a>, not typed in by hand.
+    </p>
+    <div class="chips">
+      <span class="badge deadline" data-deadline="2026-08-31" data-what="Class B &amp; C pipelines open" data-after="Class B &amp; C pipelines opened"></span>
+      <span class="badge deadline" data-deadline="2027-06-11" data-what="Legacy Rev5 path closes" data-after="Legacy Rev5 path closed"></span>
+    </div>
+  </div>
+
+  <!-- ============================== WHY NOW ============================== -->
+  <section id="why-now">
+    <div class="section-kicker"><span class="min">~1 min</span><span>step 1 of 6</span></div>
+    <h2>First: most of what you'll google is now wrong</h2>
+    <p>
+      FedRAMP rebuilt its rules in mid-2026. The <strong>Consolidated Rules for 2026</strong>
+      went live on June 25, 2026<a data-cite="rules-launch"></a>, capping a modernization effort
+      called <strong>FedRAMP 20x</strong> that GSA kicked off in March 2025<a data-cite="gsa-20x-announce"></a>.
+      Three things you'll still read everywhere that are no longer true:
+    </p>
+    <div class="card-grid">
+      <div class="role-card">
+        <h4>“You need an agency sponsor”</h4>
+        <p>No longer required. FedRAMP now reviews and certifies directly — 20x has no sponsor
+        requirement, and even the legacy path gained sponsor-free certifications in February
+        2026<a data-cite="20x-hub"></a><a data-cite="rfc-0023"></a>.</p>
+      </div>
+      <div class="role-card">
+        <h4>“The JAB will review your package”</h4>
+        <p>The Joint Authorization Board no longer exists. The FedRAMP Authorization Act and OMB
+        M-24-15 replaced it with a FedRAMP Board and a program office at GSA<a data-cite="law"></a><a data-cite="m-24-15"></a>.</p>
+      </div>
+      <div class="role-card">
+        <h4>“Budget 12–18 months for review”</h4>
+        <p>GSA reports the review timeline dropped from over a year to about five weeks, with the
+        backlog eliminated in 2025<a data-cite="gsa-milestones"></a>. (Your own preparation time
+        is still yours to spend.)</p>
+      </div>
+    </div>
+    <p>
+      That's why this site leans on FedRAMP's <em>machine-readable</em> sources — the same data
+      that powers the official Marketplace<a data-cite="mkt-data"></a> and the rules themselves,
+      published as JSON<a data-cite="rules-repo"></a> — so the numbers stay current even when the
+      prose around them ages.
+    </p>
+  </section>
+
+  <!-- ============================== BASICS ============================== -->
+  <section id="basics">
+    <div class="section-kicker"><span class="min">~1 min</span><span>step 2 of 6</span></div>
+    <h2>What FedRAMP is, in three sentences</h2>
+    <p>
+      <strong>FedRAMP</strong> (the Federal Risk and Authorization Management Program) is the
+      U.S. government's single security-approval program for cloud services, written into law at
+      44 U.S.C. §§ 3607–3616 and run out of GSA<a data-cite="law"></a><a data-cite="m-24-15"></a>.
+      The deal: a cloud provider proves its security <em>once</em>, and every federal agency can
+      then reuse that approval instead of re-assessing from scratch — the law even gives reuse a
+      formal “presumption of adequacy”<a data-cite="law"></a>.
+      The public record of who's approved, in process, and reusable lives on the FedRAMP
+      Marketplace<a data-cite="marketplace"></a> — which is what the
+      <a href="./">companion tool</a> draws from.
+    </p>
+    <div class="panel">
+      <p class="m0">
+        <strong>Why it matters to you:</strong> if you want a federal agency to use your cloud
+        product, FedRAMP isn't a nice-to-have — for federal data in cloud services it is the
+        required on-ramp, and agencies check the Marketplace before they talk to
+        you<a data-cite="m-24-15"></a>.
+      </p>
+    </div>
+  </section>
+
+  <!-- ============================== WHO'S WHO ============================== -->
+  <section id="people">
+    <div class="section-kicker"><span class="min">~1 min</span><span>step 3 of 6</span></div>
+    <h2>Who's who (five parties, one goal)</h2>
+    <div class="card-grid">
+      <div class="role-card">
+        <h4>You — the CSP</h4>
+        <p class="aka">Cloud Service Provider</p>
+        <p>Build and operate the service, implement the security requirements, produce the
+        (now machine-readable) evidence<a data-cite="rules-2026"></a>.</p>
+      </div>
+      <div class="role-card">
+        <h4>The assessor — 3PAO</h4>
+        <p class="aka">Third-Party Assessment Organization</p>
+        <p>An accredited independent firm that tests your claims before FedRAMP sees
+        them<a data-cite="playbook"></a>.</p>
+      </div>
+      <div class="role-card">
+        <h4>FedRAMP (PMO at GSA)</h4>
+        <p>Sets the standards, runs the reviews and the Marketplace — your primary counterpart
+        under the 2026 rules<a data-cite="m-24-15"></a><a data-cite="rules-2026"></a>.</p>
+      </div>
+      <div class="role-card">
+        <h4>The FedRAMP Board</h4>
+        <p>Governance and policy oversight (the JAB's replacement — it does not review
+        individual packages)<a data-cite="m-24-15"></a>.</p>
+      </div>
+      <div class="role-card">
+        <h4>Agencies — your customers</h4>
+        <p>Consume your service and reuse your approval; under the legacy path one of them
+        issued your first Authority to Operate (ATO)<a data-cite="playbook"></a>.</p>
+      </div>
+    </div>
+
+    <div class="panel quiz" data-answer="c">
+      <p class="quiz-q">Checkpoint — your package is submitted today. Who reviews it?</p>
+      <button data-opt="a">The Joint Authorization Board (JAB)</button>
+      <button data-opt="b">Only a sponsoring federal agency can</button>
+      <button data-opt="c">FedRAMP itself — no sponsor required</button>
+      <p class="quiz-explain" hidden>Under the 2026 rules FedRAMP reviews and certifies directly;
+      the JAB was dissolved by M-24-15, and sponsor-free certification now covers both 20x and
+      the legacy path<a data-cite="m-24-15"></a><a data-cite="rfc-0023"></a>.</p>
+    </div>
+  </section>
+
+  <!-- ============================== TWO PATHS ============================== -->
+  <section id="paths">
+    <div class="section-kicker"><span class="min">~2 min</span><span>step 4 of 6</span></div>
+    <h2>The fork in the road: legacy Rev5 vs. FedRAMP 20x</h2>
+    <p>
+      Two systems are running side by side while the program transitions — and the clock on the
+      old one is public<a data-cite="rules-launch"></a>. If you're starting fresh, you are almost
+      certainly choosing between them right now, which is why the difference is worth two of
+      your ten minutes.
+    </p>
+
+    <div class="table-scroll panel">
+      <table class="compare">
+        <tr><th></th><th>Rev5 (legacy)</th><th>FedRAMP 20x (current)</th></tr>
+        <tr>
+          <td>Philosophy</td>
+          <td>“Documented plans” — prove security with narrative packages against NIST SP 800-53
+              controls<a data-cite="definitions"></a></td>
+          <td>“Measured outcomes” — prove security with validated, largely automated evidence
+              against Key Security Indicators<a data-cite="definitions"></a><a data-cite="rfc-0006"></a></td>
+        </tr>
+        <tr>
+          <td>Scope of work</td>
+          <td>156 / 323 / 410 controls at the Low / Moderate / High baselines<a data-cite="rev5-deck"></a></td>
+          <td>KSI indicator sets that vary by certification class — the
+              <a href="./#ksi">KSI Quest tab</a> renders them straight from the rules
+              file<a data-cite="rules-repo"></a></td>
+        </tr>
+        <tr>
+          <td>The package</td>
+          <td>Word/PDF System Security Plan, assessment reports, POA&amp;M<a data-cite="playbook"></a></td>
+          <td>Machine-readable (JSON) digital packages<a data-cite="rules-2026"></a></td>
+        </tr>
+        <tr>
+          <td>Sponsor</td>
+          <td>Historically required an agency partner to issue the ATO<a data-cite="legacy-playbook"></a></td>
+          <td>None required<a data-cite="20x-hub"></a></td>
+        </tr>
+        <tr>
+          <td>Availability</td>
+          <td>Closing: no new Rev5 certifications after June 11, 2027<a data-cite="rules-launch"></a></td>
+          <td>Class A open since Aug 3, 2026; Classes B &amp; C scheduled for Aug 31,
+              2026<a data-cite="rules-launch"></a></td>
+        </tr>
+      </table>
+    </div>
+
+    <h3>The dates that matter (computed live, so they can't go stale)</h3>
+    <ul class="timeline">
+      <li class="tl-done"><span class="tl-date">Mar 24, 2025</span> <span class="tl-status">GSA announces FedRAMP 20x<a data-cite="gsa-20x-announce"></a></span></li>
+      <li class="tl-done"><span class="tl-date">Jul 2025</span> <span class="tl-status">first 20x pilot authorizations issued<a data-cite="blog-4months"></a></span></li>
+      <li class="tl-done"><span class="tl-date">Jun 25, 2026</span> <span class="tl-status">Consolidated Rules for 2026 launch; 20x becomes the standard path<a data-cite="rules-launch"></a></span></li>
+      <li class="tl-done"><span class="tl-date">Aug 3, 2026</span> <span class="tl-status">Class A submission pipeline opens<a data-cite="rules-launch"></a></span></li>
+      <li><span class="tl-date">Aug 31, 2026</span> <span class="tl-status"><span data-deadline="2026-08-31" data-what="Class B &amp; C pipelines open" data-after="Class B &amp; C pipelines opened"></span><a data-cite="rules-launch"></a></span></li>
+      <li><span class="tl-date">Jan 1, 2027</span> <span class="tl-status"><span data-deadline="2027-01-01" data-what="new rules become mandatory for everyone" data-after="new rules became mandatory"></span><a data-cite="rules-launch"></a></span></li>
+      <li><span class="tl-date">Jun 11, 2027</span> <span class="tl-status"><span data-deadline="2027-06-11" data-what="last day for new Rev5 certifications" data-after="Rev5 closed to new certifications"></span><a data-cite="rules-launch"></a></span></li>
+    </ul>
+
+    <div class="panel unverified-panel">
+      <p class="m0">
+        <strong>What does it cost?</strong> Honest answer: there are no official figures — FedRAMP
+        considered requiring assessment-cost reporting and decided against it (RFC-0019, “Not
+        Implemented”)<a data-cite="rfcs"></a>. Industry estimates for a traditional Rev5 effort
+        commonly land anywhere from the mid six figures to a few million dollars all-in — treat
+        those as vendor marketing, not gospel<a data-cite="vanta-cost"></a><a data-cite="secureframe-cost"></a>.
+        20x is expected to cost less mostly because it automates evidence; it's too new for
+        reliable numbers.
+      </p>
+    </div>
+
+    <div class="panel quiz" data-answer="b">
+      <p class="quiz-q">Checkpoint — it's mid-2027 and you're just starting. Which path can you take?</p>
+      <button data-opt="a">Either — Rev5 and 20x run in parallel indefinitely</button>
+      <button data-opt="b">20x only — Rev5 stopped accepting new certifications on June 11, 2027</button>
+      <button data-opt="c">Rev5 only — 20x is still a pilot</button>
+      <p class="quiz-explain" hidden>The published schedule closes Rev5 to new certifications on
+      June 11, 2027; 20x has been the generally available path since the 2026 rules
+      launched<a data-cite="rules-launch"></a>.</p>
+    </div>
+  </section>
+
+  <!-- ============================== CLASSES ============================== -->
+  <section id="classes">
+    <div class="section-kicker"><span class="min">~1 min</span><span>step 5 of 6</span></div>
+    <h2>Certification Classes: A, B, C, D</h2>
+    <p>
+      The 2026 rules organize certifications into <strong>classes of increasing assurance</strong> —
+      “minimal assurance at Class A to significant assurance at Class D”<a data-cite="definitions"></a>.
+      They loosely echo the old Low/Moderate/High impact levels, but the official definitions are
+      what count<a data-cite="definitions"></a><a data-cite="reference"></a>. A rough, honest guide:
+    </p>
+    <div id="class-picker" class="panel">
+      <p class="quiz-q">Which sounds most like your service?
+        <span class="hedge">(a study aid — the official class definitions decide, not this
+        page<a data-cite="definitions"></a>)</span></p>
+      <div class="picker-options">
+        <button data-pick="a">We're new to federal, security program is solid, want the entry door</button>
+        <button data-pick="b">Small-scale or light-use service, lower-sensitivity data</button>
+        <button data-pick="c">Standard enterprise SaaS an agency would run real work on</button>
+        <button data-pick="d">High-sensitivity workloads (think: the old “High” baseline)</button>
+      </div>
+      <div class="picker-card role-card" data-card="a" hidden>
+        <h4>Look at Class A</h4>
+        <p>FedRAMP describes Class A as the entry tier for organizations with mature security
+        programs that are new to the federal marketplace — minimal assurance, fastest on-ramp.
+        Its pipeline opened August 3, 2026<a data-cite="20x-hub"></a><a data-cite="rules-launch"></a>.</p>
+      </div>
+      <div class="picker-card role-card" data-card="b" hidden>
+        <h4>Look at Class B</h4>
+        <p>Aimed at small-scale, light-use services (the territory the old Low baseline covered).
+        Available via 20x from August 31, 2026, and via Rev5 until it
+        sunsets<a data-cite="20x-hub"></a><a data-cite="reference"></a><a data-cite="rules-launch"></a>.</p>
+      </div>
+      <div class="picker-card role-card" data-card="c" hidden>
+        <h4>Look at Class C</h4>
+        <p>The workhorse tier for common enterprise services (roughly the old Moderate territory,
+        where most of the marketplace lives — see the <a href="./">live data</a>). Available via
+        20x from August 31, 2026, and via Rev5 until
+        sunset<a data-cite="20x-hub"></a><a data-cite="reference"></a><a data-cite="rules-launch"></a>.</p>
+      </div>
+      <div class="picker-card role-card" data-card="d" hidden>
+        <h4>Class D — not in 20x yet</h4>
+        <p>The highest-assurance class is still in development on the 20x side (planned for a
+        future phase), so today high-baseline work means the Rev5 path while it remains
+        open<a data-cite="20x-hub"></a><a data-cite="reference"></a>.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================== KSI ============================== -->
+  <section id="ksi">
+    <div class="section-kicker"><span class="min">~2 min</span><span>step 6 of 6</span></div>
+    <h2>Key Security Indicators — the heart of 20x</h2>
+    <p>
+      A <strong>KSI</strong> flips the old model. Instead of writing a narrative explaining how you
+      <em>plan</em> to be secure, each indicator is a concrete security outcome you demonstrate —
+      with largely automated, machine-readable evidence, validated continuously rather than
+      re-audited yearly<a data-cite="definitions"></a><a data-cite="rfc-0006"></a>. The KSI
+      standard was adopted in May 2025 (RFC-0006) and is now the backbone of every 20x
+      certification class<a data-cite="rfc-0006"></a><a data-cite="reference"></a>.
+    </p>
+    <p>
+      You don't have to take this page's word for what the catalog contains: the companion tool's
+      <a href="./#ksi">KSI Quest tab</a> renders the official rules file itself — every family and
+      indicator, fetched from FedRAMP's machine-readable rules
+      repository<a data-cite="rules-repo"></a>. Tick indicators you believe you already meet to
+      get a feel for the surface area — <em>it's a study aid, not an assessment; only a real
+      review decides</em>.
+    </p>
+
+    <div class="panel quiz" data-answer="a">
+      <p class="quiz-q">Checkpoint — what is a Key Security Indicator?</p>
+      <button data-opt="a">A measurable security outcome, demonstrated with (mostly automated) validated evidence</button>
+      <button data-opt="b">A chapter of the System Security Plan narrative</button>
+      <button data-opt="c">A score FedRAMP assigns after your annual audit</button>
+      <p class="quiz-explain" hidden>FedRAMP's definitions contrast 20x's “measured outcomes”
+      with Rev5's “documented plans” — KSIs are those measured outcomes, introduced by the KSI
+      standard adopted in 2025<a data-cite="definitions"></a><a data-cite="rfc-0006"></a>.</p>
+    </div>
+  </section>
+
+  <!-- ============================== SOURCES ============================== -->
+  <section id="sources">
+    <h2>Sources for this page</h2>
+    <p class="sub">
+      Numbered in order of first citation above; each superscript links to its entry here. The
+      full registry, verification dates, and method notes live on the
+      <a href="about.html">Sources &amp; method page</a>.
+    </p>
+    <ol id="source-list"></ol>
+  </section>
+</main>
+
+<footer>
+  <p>An unofficial learning tool by <a href="https://github.com/laynr">@laynr</a> — not affiliated
+    with or endorsed by GSA or the FedRAMP program. Data © U.S. General Services Administration
+    via its published feeds.
+    <a href="./">The tool</a> · <a href="about.html">Sources &amp; method</a> ·
+    <a href="https://github.com/laynr/FedRAMP">GitHub</a> ·
+    <a href="https://github.com/laynr/FedRAMP/issues">Corrections welcome</a></p>
+</footer>
+
+<script type="module" src="js/learn.js"></script>
+</body>
+</html>

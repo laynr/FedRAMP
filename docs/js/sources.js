@@ -95,8 +95,25 @@ export const SOURCES = {
   },
 };
 
-/** Replace every <a data-cite> with a numbered superscript link; return ordered list used. */
+/* Local escaper. Deliberately NOT imported from ui.js: this module is also
+   imported by Node (CI's data-cite consistency check), and ui.js touches
+   browser globals (matchMedia) at module top level. */
+const esc = (s) =>
+  String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+/**
+ * Replace every <a data-cite> with a numbered superscript link; return the
+ * ordered list of source ids used (first-appearance order = the numbering).
+ *
+ * If the page has its own `#source-list` (learn.html), superscripts link to
+ * the matching `#src-N` anchor in that list, so the number a reader clicks is
+ * the number they land on. Pages without a local list (index.html's drawer)
+ * link straight to the external source; the tooltip carries the source title
+ * so the number needs no cross-page decoder ring.
+ */
 export function wireCitations(root = document) {
+  const doc = root.ownerDocument ?? root;
+  const hasLocalList = Boolean(doc.getElementById && doc.getElementById('source-list'));
   const order = [];
   for (const a of root.querySelectorAll('a[data-cite]')) {
     const id = a.dataset.cite;
@@ -107,9 +124,13 @@ export function wireCitations(root = document) {
     }
     if (!order.includes(id)) order.push(id);
     const n = order.indexOf(id) + 1;
-    a.href = src.url;
-    a.target = '_blank';
-    a.rel = 'noopener';
+    if (hasLocalList) {
+      a.href = `#src-${n}`;
+    } else {
+      a.href = src.url;
+      a.target = '_blank';
+      a.rel = 'noopener';
+    }
     a.className = 'cite';
     a.title = src.title;
     a.textContent = `[${n}]`;
@@ -117,12 +138,12 @@ export function wireCitations(root = document) {
   return order;
 }
 
-/** Render the numbered source list into a container. */
+/** Render a numbered source list (ids in citation order) into a container. */
 export function renderSourceList(el, order) {
   el.innerHTML = order
     .map((id, i) => {
       const s = SOURCES[id];
-      return `<li id="src-${i + 1}"><a href="${s.url}" target="_blank" rel="noopener">${s.title}</a><span class="src-url">${s.url}</span></li>`;
+      return `<li id="src-${i + 1}"><a href="${esc(s.url)}" target="_blank" rel="noopener">${esc(s.title)}</a><span class="src-url">${esc(s.url)}</span></li>`;
     })
     .join('');
 }

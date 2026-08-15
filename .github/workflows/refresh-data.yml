@@ -1,3 +1,10 @@
+# Weekly data refresh + Pages deploy.
+#
+# Why this workflow deploys Pages itself: pushes made with GITHUB_TOKEN do not
+# trigger other workflows (including branch-based Pages deploys), so a plain
+# commit-and-push here would refresh docs/data/ without ever redeploying the
+# site. The repo's Pages source must therefore be set to "GitHub Actions"
+# (build_type: workflow); pages.yml covers deploys for normal human pushes.
 name: Refresh FedRAMP data snapshots
 
 on:
@@ -5,22 +12,31 @@ on:
     - cron: '17 9 * * 1' # Mondays 09:17 UTC
   workflow_dispatch:
 
-permissions:
-  contents: write
+permissions: {}
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
 
 jobs:
   refresh:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 22
-      - name: Run transform tests
+      - name: Run tests (transforms + hostile fixtures)
         run: node --test tools/*.test.mjs
       - name: Regenerate snapshots
         run: node tools/fedramp-data.mjs snapshot
       - name: Commit if changed
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
@@ -29,5 +45,24 @@ jobs:
             echo "No data changes."
           else
             git commit -m "data: refresh FedRAMP snapshots ($(date -u +%F))"
-            git push
+            git pull --rebase origin main
+            git push "https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}.git" HEAD:main
           fi
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3.0.1
+        with:
+          path: docs
+
+  deploy:
+    needs: refresh
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4.0.5

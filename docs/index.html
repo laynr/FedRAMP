@@ -3,6 +3,12 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- CSP: no external scripts/styles/frames; network access only to self plus the
+     two GSA-published data CDNs (jsDelivr primary, raw.githubusercontent fallback).
+     style-src needs 'unsafe-inline' only because chart bars set width via an
+     inline style attribute in a template — a weak primitive; see about.html. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https://cdn.jsdelivr.net https://raw.githubusercontent.com; base-uri 'none'; form-action 'none'; object-src 'none'">
+<meta name="referrer" content="strict-origin-when-cross-origin">
 <title>FedRAMP — unofficial explorer</title>
 <meta name="description" content="An unofficial, live explorer for FedRAMP: track services, see real authorization timelines, watch what changed — powered by FedRAMP's own published data.">
 <link rel="stylesheet" href="css/site.css">
@@ -23,6 +29,8 @@
     <button data-view="ksi" class="tab">KSI Quest</button>
   </nav>
   <span class="spacer"></span>
+  <a class="header-link" href="learn.html">Learn</a>
+  <a class="header-link" href="about.html">About</a>
   <button id="open-explainer" class="ghost-btn">What is FedRAMP?</button>
   <button id="theme-toggle" class="ghost-btn" aria-label="Toggle dark mode">◐</button>
 </header>
@@ -41,7 +49,7 @@
       <div class="pulse-side">
         <div class="panel">
           <h3>The clocks that matter</h3>
-          <div class="chips" id="countdowns">
+          <div class="chips">
             <span class="badge deadline" data-deadline="2026-08-31" data-what="Class B &amp; C pipelines open" data-after="Class B &amp; C pipelines opened"></span>
             <span class="badge deadline" data-deadline="2027-01-01" data-what="2026 rules become mandatory" data-after="2026 rules became mandatory"></span>
             <span class="badge deadline" data-deadline="2027-06-11" data-what="legacy Rev5 path closes" data-after="legacy Rev5 path closed"></span>
@@ -120,7 +128,7 @@
           <span id="ksi-ring-label">…</span>
         </div>
         <span id="ksi-meta">loading…</span>
-        <span style="flex:1"></span>
+        <span class="spacer"></span>
         <button id="ksi-export">Export gap list (.md)</button>
         <button id="ksi-reset">Reset</button>
       </div>
@@ -134,17 +142,18 @@
 
 <!-- ============ SERVICE PROFILE DRAWER ============ -->
 <div id="drawer-backdrop" hidden></div>
-<aside id="svc-drawer" hidden aria-label="Service profile"></aside>
+<aside id="svc-drawer" hidden role="dialog" aria-modal="true" aria-label="Service profile"></aside>
 
 <!-- ============ WHAT IS FEDRAMP? DRAWER ============ -->
-<aside id="explainer" hidden aria-label="What is FedRAMP">
+<aside id="explainer" hidden role="dialog" aria-modal="true" aria-label="What is FedRAMP">
   <div class="drawer-head">
     <h2>FedRAMP in 90 seconds</h2>
-    <button class="close-btn" data-close="explainer" aria-label="Close">✕</button>
+    <button class="close-btn" data-close aria-label="Close">✕</button>
   </div>
   <p><strong>FedRAMP</strong> is the U.S. government's single security-approval program for cloud
     services — in law at 44 U.S.C. §§ 3607–3616, run out of GSA<a data-cite="law"></a><a data-cite="m-24-15"></a>.
-    Prove your security once; every agency can reuse the approval<a data-cite="law"></a>.</p>
+    Prove your security once; the law gives that approval a formal “presumption of adequacy,” so
+    agencies reuse it instead of re-assessing from scratch<a data-cite="law"></a>.</p>
   <h3>Three things the internet still gets wrong</h3>
   <div class="myth"><strong>“You need an agency sponsor.”</strong> Not since the 2026 rules — FedRAMP reviews and certifies directly<a data-cite="20x-hub"></a><a data-cite="rfc-0023"></a>.</div>
   <div class="myth"><strong>“The JAB reviews your package.”</strong> The JAB no longer exists; a FedRAMP Board + GSA program office replaced it<a data-cite="m-24-15"></a>.</div>
@@ -153,11 +162,13 @@
   <table class="compare">
     <tr><th></th><th>Rev5 (legacy)</th><th>20x (current)</th></tr>
     <tr><td>Prove security by</td><td>documented plans (narratives)</td><td>measured outcomes (KSIs, automated evidence)<a data-cite="definitions"></a></td></tr>
-    <tr><td>Status</td><td>closes to new certs June 11, 2027</td><td>open now — Classes A–C<a data-cite="rules-launch"></a></td></tr>
+    <tr><td>Status</td><td>closes to new certs June 11, 2027</td><td>Class A open since Aug 3, 2026; Classes B &amp; C scheduled Aug 31, 2026<a data-cite="rules-launch"></a></td></tr>
   </table>
   <h3>Certification classes</h3>
-  <p class="sub">A (entry, minimal assurance) → B (small-scale) → C (enterprise workhorse) → D (highest, in development)<a data-cite="definitions"></a><a data-cite="20x-hub"></a>.</p>
-  <p><a href="about.html">Full sources &amp; method →</a></p>
+  <p class="sub">A (entry, minimal assurance) → B (small-scale) → C (enterprise workhorse) → D (highest, in development)<a data-cite="definitions"></a><a data-cite="20x-hub"></a>.
+    <span class="hedge">A rough guide — the official class definitions decide, not this page.</span></p>
+  <p><a href="learn.html">Full explainer — the 10-minute version →</a><br>
+    <a href="about.html">Sources &amp; method →</a></p>
 </aside>
 
 <footer>

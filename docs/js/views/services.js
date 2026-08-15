@@ -1,12 +1,26 @@
-/** Services view: instant search + filters + star buttons + profile drawer. */
+/**
+ * Services view: instant search + filters + star buttons + profile drawer.
+ * renderServices() is idempotent — the app calls it on every state swap
+ * (snapshot load AND live refresh); listeners are wired exactly once.
+ *
+ * A11y contract with the markup/CSS pass:
+ *   <div class="svc-item">            flex row (Agent L styles)
+ *     <button class="star">…</button> star is a SIBLING, never nested
+ *     <button class="svc-row">…</button>  keeps its grid minus the star column
+ *   </div>
+ */
 
 import { state, relativeDate } from '../data.js';
-import { openDrawer } from '../ui.js';
-import { esc, fmt } from '../ui.js';
-import { loadWatchlist, saveWatchlist, toggleStar, refreshFingerprints } from '../watchlist.js';
+import { openDrawer, esc, fmt } from '../ui.js';
+import {
+  loadWatchlist, saveWatchlist, toggleStar, refreshFingerprints,
+  markVisited as advanceVisit, SAFE_ID,
+} from '../watchlist.js';
 
 let watch = loadWatchlist();
 const listeners = new Set();
+let wired = false;
+let shown = 30;
 
 /** Other views can react to star changes (e.g. Pulse watch card). */
 export function onWatchChange(fn) {
@@ -27,59 +41,89 @@ export function star(id) {
   for (const btn of document.querySelectorAll(`[data-star="${CSS.escape(id)}"]`)) {
     btn.classList.toggle('starred', isStarred(id));
     btn.textContent = isStarred(id) ? '★' : '☆';
+    btn.setAttribute('aria-pressed', String(isStarred(id)));
   }
 }
 
-/** Persist current fingerprints for all starred ids (called after diff on boot). */
+/** Persist current fingerprints for all starred ids (does NOT advance savedAt). */
 export function commitFingerprints() {
   watch = refreshFingerprints(watch, state.productsById, state.journeysById);
   saveWatchlist(watch);
 }
 
+/** Advance "last visit" once per page load (Pulse calls this after diffs render). */
+export function markVisited() {
+  watch = advanceVisit(watch);
+}
+
 const starBtn = (id) =>
-  `<button class="star ${isStarred(id) ? 'starred' : ''}" data-star="${esc(id)}" aria-label="Watch this service" title="Watch: next visit starts with what changed">${isStarred(id) ? '★' : '☆'}</button>`;
+  `<button class="star ${isStarred(id) ? 'starred' : ''}" data-star="${esc(id)}" aria-pressed="${isStarred(id)}" aria-label="Watch this service" title="Watch: next visit starts with what changed">${isStarred(id) ? '★' : '☆'}</button>`;
 
 // ---------- list ----------
 
-export function initServices() {
-  const root = document.getElementById('view-services');
-  const search = root.querySelector('#svc-search');
-  const statusSel = root.querySelector('#svc-status');
-  const impactSel = root.querySelector('#svc-impact');
-  const starredOnly = root.querySelector('#svc-starred');
-  const list = root.querySelector('#svc-list');
-  const countEl = root.querySelector('#svc-count');
-  const moreBtn = root.querySelector('#svc-more');
-  let shown = 30;
+const els = () => ({
+  search: document.getElementById('svc-search'),
+  statusSel: document.getElementById('svc-status'),
+  impactSel: document.getElementById('svc-impact'),
+  starredOnly: document.getElementById('svc-starred'),
+  list: document.getElementById('svc-list'),
+  countEl: document.getElementById('svc-count'),
+  moreBtn: document.getElementById('svc-more'),
+});
 
+function rebuildFilters() {
+  const { search, statusSel, impactSel } = els();
   const uniq = (key) => [...new Set(state.products.map((p) => p[key]).filter(Boolean))].sort();
-  statusSel.innerHTML = '<option value="">Any status</option>' + uniq('status').map((v) => `<option>${esc(v)}</option>`).join('');
-  impactSel.innerHTML = '<option value="">Any impact level</option>' + uniq('impact').map((v) => `<option>${esc(v)}</option>`).join('');
-
-  function matches() {
-    const q = search.value.trim().toLowerCase();
-    return state.products
-      .filter((p) => !statusSel.value || p.status === statusSel.value)
-      .filter((p) => !impactSel.value || p.impact === impactSel.value)
-      .filter((p) => !starredOnly.checked || isStarred(p.id))
-      .filter((p) => !q || [p.csp, p.cso, p.offering, p.assessor].some((s) => s?.toLowerCase().includes(q)))
-      .sort((a, b) => b.reuse - a.reuse);
+  for (const [sel, key, anyLabel] of [
+    [statusSel, 'status', 'Any status'],
+    [impactSel, 'impact', 'Any impact level'],
+  ]) {
+    const prev = sel.value;
+    sel.innerHTML = `<option value="">${anyLabel}</option>` + uniq(key).map((v) => `<option>${esc(v)}</option>`).join('');
+    if (prev && [...sel.options].some((o) => o.value === prev)) sel.value = prev;
   }
+  search.placeholder = `Search ${fmt(state.products.length)} services, providers, assessors…`;
+}
 
-  function draw() {
-    const rows = matches();
-    list.innerHTML = rows.slice(0, shown).map((p) => `
-      <div class="svc-row" data-open="${esc(p.id)}">
-        ${starBtn(p.id)}
-        <div class="svc-name"><strong>${esc(p.cso)}</strong><span>${esc(p.csp)}</span></div>
+function matches() {
+  const { search, statusSel, impactSel, starredOnly } = els();
+  const q = search.value.trim().toLowerCase();
+  return state.products
+    .filter((p) => !statusSel.value || p.status === statusSel.value)
+    .filter((p) => !impactSel.value || p.impact === impactSel.value)
+    .filter((p) => !starredOnly.checked || isStarred(p.id))
+    .filter((p) => !q || [p.csp, p.cso, p.offering, p.assessor].some((s) => s?.toLowerCase().includes(q)))
+    .sort((a, b) => b.reuse - a.reuse);
+}
+
+function draw() {
+  const { list, countEl, moreBtn } = els();
+  const rows = matches();
+  if (!rows.length) {
+    list.innerHTML = `<div class="panel svc-empty">
+      <p class="sub">No services match these filters.</p>
+      <button class="ghost-btn" data-clear-filters>Clear search &amp; filters</button>
+    </div>`;
+    countEl.textContent = 'No matches — try clearing the filters';
+    moreBtn.style.display = 'none';
+    return;
+  }
+  list.innerHTML = rows.slice(0, shown).map((p) => `
+    <div class="svc-item">
+      ${starBtn(p.id)}
+      <button class="svc-row" data-open="${esc(p.id)}">
+        <span class="svc-name"><strong>${esc(p.cso)}</strong><span>${esc(p.csp)}</span></span>
         <span class="pill ${p.impact?.startsWith('20x') ? 'pill-20x' : ''}">${esc(p.impact ?? '—')}</span>
         <span class="pill">${esc(p.status ?? '—')}</span>
         <span class="svc-reuse" title="reuses">${fmt(p.reuse)}↻</span>
-      </div>`).join('');
-    countEl.textContent = `${Math.min(shown, rows.length)} of ${fmt(rows.length)} services — click one for its story`;
-    moreBtn.style.display = rows.length > shown ? '' : 'none';
-  }
+      </button>
+    </div>`).join('');
+  countEl.textContent = `${Math.min(shown, rows.length)} of ${fmt(rows.length)} services — click one for its story`;
+  moreBtn.style.display = rows.length > shown ? '' : 'none';
+}
 
+function wire() {
+  const { search, statusSel, impactSel, starredOnly, list, moreBtn } = els();
   for (const ctl of [search, statusSel, impactSel, starredOnly]) {
     ctl.addEventListener('input', () => {
       shown = 30;
@@ -91,6 +135,15 @@ export function initServices() {
     draw();
   });
   list.addEventListener('click', (e) => {
+    if (e.target.closest('[data-clear-filters]')) {
+      search.value = '';
+      statusSel.value = '';
+      impactSel.value = '';
+      starredOnly.checked = false;
+      shown = 30;
+      draw();
+      return;
+    }
     const sb = e.target.closest('[data-star]');
     if (sb) {
       star(sb.dataset.star);
@@ -101,6 +154,15 @@ export function initServices() {
     if (row) openServiceDrawer(row.dataset.open);
   });
   onWatchChange(() => starredOnly.checked && draw());
+}
+
+/** Idempotent: wires once, then rebuilds filters/placeholder and redraws. */
+export function renderServices() {
+  if (!wired) {
+    wired = true;
+    wire();
+  }
+  rebuildFilters();
   draw();
 }
 
@@ -116,7 +178,7 @@ export function openServiceDrawer(id) {
   const timeline = j?.events?.length
     ? `<ol class="timeline">${j.events.map((e, i) => `
         <li class="${i === j.events.length - 1 ? 'tl-now' : ''}">
-          <span class="tl-date">${e.date}</span>
+          <span class="tl-date">${esc(e.date)}</span>
           <span class="tl-status">${esc(e.to)}${e.class ? ` <span class="pill">${esc(e.class)}</span>` : ''}</span>
         </li>`).join('')}</ol>
       ${j.days != null ? `<p class="sub">Journey: <strong>${fmt(j.days)} days</strong> from first in-process event to ${esc(j.events.find((e) => /certified|authorized/i.test(e.to))?.to ?? 'done')}${j.migration ? ' · includes migration-era records (coarser dates)' : ''}</p>` : ''}`
@@ -144,7 +206,7 @@ export function openServiceDrawer(id) {
       <span class="pill ${p.impact?.startsWith('20x') ? 'pill-20x' : ''}">${esc(p.impact ?? '—')}</span>
       <span class="pill">${esc(p.status ?? '—')}</span>
       ${p.authType ? `<span class="pill">${esc(p.authType)} path</span>` : ''}
-      ${p.authDate ? `<span class="pill">authorized ${p.authDate} (${relativeDate(p.authDate)})</span>` : ''}
+      ${p.authDate ? `<span class="pill">authorized ${esc(p.authDate)} (${relativeDate(p.authDate)})</span>` : ''}
     </div>
     <h3>The journey</h3>
     ${timeline}
@@ -164,4 +226,8 @@ export function openServiceDrawer(id) {
     star(id);
   });
   openDrawer(drawer);
+  // Deep link: reloading (or sharing) the URL reopens this profile.
+  if (SAFE_ID.test(id)) history.replaceState(null, '', `#services=${encodeURIComponent(id)}`);
+  // app.js owns dialog a11y (focus, trap, restore) — announce the open.
+  document.dispatchEvent(new CustomEvent('fedramp:drawer-open', { detail: { drawer } }));
 }

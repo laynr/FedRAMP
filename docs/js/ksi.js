@@ -2,21 +2,30 @@
  * KSI Explorer + self-check study aid.
  * Renders the official Key Security Indicator catalog (from FedRAMP/rules,
  * machine-readable) and lets you tick indicators you believe you meet.
- * Progress persists in localStorage. Explicitly a study aid, not an assessment.
+ * Progress persists in localStorage (guarded — Safari private mode throws).
+ * Explicitly a study aid, not an assessment.
  */
+
+import { esc, storage } from './ui.js';
 
 const STORE_KEY = 'fedramp-ksi-selfcheck-v1';
 
 function loadChecks() {
   try {
-    return new Set(JSON.parse(localStorage.getItem(STORE_KEY) ?? '[]'));
+    const parsed = JSON.parse(storage.get(STORE_KEY) ?? '[]');
+    return new Set(Array.isArray(parsed) ? parsed.filter((x) => typeof x === 'string') : []);
   } catch {
     return new Set();
   }
 }
 
 function saveChecks(set) {
-  localStorage.setItem(STORE_KEY, JSON.stringify([...set]));
+  storage.set(STORE_KEY, JSON.stringify([...set]));
+}
+
+// Family ids come from the feed — make them safe to use as DOM ids.
+function famTabId(id) {
+  return `ksi-tab-${String(id).replace(/[^A-Za-z0-9_-]/g, '_')}`;
 }
 
 export function initKsi(root, ksi) {
@@ -30,6 +39,11 @@ export function initKsi(root, ksi) {
 
   const totalIndicators = ksi.families.reduce((a, f) => a + f.indicators.length, 0);
   meta.textContent = `${ksi.families.length} families · ${totalIndicators} indicators · rules version ${ksi.version} (updated ${ksi.updated})`;
+
+  // Tab pattern: family buttons are tabs (roving tabindex), detail is the panel.
+  // The container's role="tablist" lives in index.html.
+  detail.setAttribute('role', 'tabpanel');
+  detail.setAttribute('tabindex', '0');
 
   function updateRing() {
     const done = checks.size;
@@ -48,11 +62,27 @@ export function initKsi(root, ksi) {
     return `${done}/${f.indicators.length}`;
   }
 
+  function activateFam(index, { focus = false } = {}) {
+    const n = ksi.families.length;
+    if (!n) return;
+    const i = ((index % n) + n) % n;
+    activeFam = ksi.families[i].id;
+    renderNav();
+    renderDetail();
+    if (focus) famNav.querySelector('[aria-selected="true"]')?.focus();
+  }
+
   function renderNav() {
     famNav.innerHTML = '';
     for (const f of ksi.families) {
+      const isActive = f.id === activeFam;
       const btn = document.createElement('button');
-      btn.className = 'ksi-fam' + (f.id === activeFam ? ' active' : '');
+      btn.className = 'ksi-fam' + (isActive ? ' active' : '');
+      btn.id = famTabId(f.id);
+      btn.setAttribute('role', 'tab');
+      btn.setAttribute('aria-selected', isActive ? 'true' : 'false');
+      btn.setAttribute('aria-controls', detail.id || 'ksi-detail');
+      btn.tabIndex = isActive ? 0 : -1; // roving tabindex
       btn.innerHTML = `<span class="ksi-fam-id"></span><span class="ksi-fam-name"></span><span class="ksi-fam-count"></span>`;
       btn.querySelector('.ksi-fam-id').textContent = f.short;
       btn.querySelector('.ksi-fam-name').textContent = f.name;
@@ -66,25 +96,44 @@ export function initKsi(root, ksi) {
     }
   }
 
+  famNav.addEventListener('keydown', (e) => {
+    const idx = ksi.families.findIndex((f) => f.id === activeFam);
+    if (idx < 0) return;
+    if (e.key === 'ArrowDown' || e.key === 'ArrowRight') {
+      e.preventDefault();
+      activateFam(idx + 1, { focus: true });
+    } else if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') {
+      e.preventDefault();
+      activateFam(idx - 1, { focus: true });
+    } else if (e.key === 'Home') {
+      e.preventDefault();
+      activateFam(0, { focus: true });
+    } else if (e.key === 'End') {
+      e.preventDefault();
+      activateFam(ksi.families.length - 1, { focus: true });
+    }
+  });
+
   function renderDetail() {
     const f = ksi.families.find((x) => x.id === activeFam);
     if (!f) return;
-    detail.innerHTML = `<h4>${f.id} — ${f.name}</h4>`;
+    detail.setAttribute('aria-labelledby', famTabId(f.id));
+    detail.innerHTML = `<h4>${esc(f.id)} — ${esc(f.name)}</h4>`;
     for (const ind of f.indicators) {
       const item = document.createElement('label');
       item.className = 'ksi-ind';
       const classNote = ind.classes
         ? `<p class="ksi-classes">Varies by class: ${Object.entries(ind.classes)
-            .map(([c, v]) => `<strong>Class ${c.toUpperCase()}</strong> — ${escapeHtml(v.statement ?? '')}`)
+            .map(([c, v]) => `<strong>Class ${esc(c.toUpperCase())}</strong> — ${esc(v.statement ?? '')}`)
             .join(' · ')}</p>`
         : '';
       item.innerHTML = `
-        <input type="checkbox" ${checks.has(ind.id) ? 'checked' : ''} aria-label="Mark ${ind.id} as met (study aid)">
+        <input type="checkbox" ${checks.has(ind.id) ? 'checked' : ''} aria-label="Mark ${esc(ind.id)} as met (study aid)">
         <span class="ksi-ind-body">
-          <span class="ksi-ind-head"><code>${ind.id}</code> <strong></strong></span>
+          <span class="ksi-ind-head"><code>${esc(ind.id)}</code> <strong></strong></span>
           <span class="ksi-ind-statement"></span>
           ${classNote}
-          <span class="ksi-ind-controls">${ind.controls.length ? 'NIST SP 800-53: ' + ind.controls.map((c) => `<code>${c}</code>`).join(' ') : ''}</span>
+          <span class="ksi-ind-controls">${ind.controls.length ? 'NIST SP 800-53: ' + ind.controls.map((c) => `<code>${esc(c)}</code>`).join(' ') : ''}</span>
         </span>`;
       item.querySelector('strong').textContent = ind.name;
       item.querySelector('.ksi-ind-statement').textContent = ind.statement;
@@ -133,8 +182,4 @@ export function initKsi(root, ksi) {
   renderNav();
   renderDetail();
   updateRing();
-}
-
-function escapeHtml(s) {
-  return s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }

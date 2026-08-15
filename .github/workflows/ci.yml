@@ -1,0 +1,40 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+      - name: Run tests (transforms + hostile fixtures)
+        run: node --test tools/*.test.mjs
+      - name: CLI smoke test
+        run: node tools/fedramp-data.mjs --help
+      - name: Every data-cite id resolves to a registered source ("cited or cut")
+        run: |
+          node --input-type=module -e "
+            import { readFile, readdir } from 'node:fs/promises';
+            import { pathToFileURL } from 'node:url';
+            const { SOURCES } = await import(pathToFileURL('docs/js/sources.js'));
+            let bad = 0, seen = 0;
+            for (const f of (await readdir('docs')).filter((f) => f.endsWith('.html'))) {
+              const html = await readFile('docs/' + f, 'utf8');
+              for (const m of html.matchAll(/data-cite=\"([^\"]+)\"/g)) {
+                seen++;
+                if (!SOURCES[m[1]]) { console.error(f + ': unknown citation id ' + m[1]); bad++; }
+              }
+            }
+            console.log(seen + ' citations checked, ' + bad + ' unknown');
+            if (bad) process.exit(1);
+          "

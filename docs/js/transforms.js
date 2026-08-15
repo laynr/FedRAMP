@@ -2,40 +2,109 @@
  * Pure transforms over the official FedRAMP feeds.
  * Shared by the browser (docs/js/*) and the Node CLI (tools/fedramp-data.mjs),
  * so the site's "live refresh" and the build-time snapshots can never disagree.
+ *
+ * SECURITY: this module is the single sanitization boundary for hostile
+ * upstream input. Both the CLI snapshots and the browser's live refresh
+ * funnel every feed through these transforms, so every string is
+ * type-checked, control-char-stripped and length-capped HERE, every id must
+ * match a strict pattern, and every date must be a real calendar date in a
+ * sane range. Sanitization here is about type/length/shape — HTML escaping
+ * is the renderer's job (see esc() in docs/js/ui.js); a poisoned feed can at
+ * worst produce weird-looking text, never oversized payloads, control
+ * characters, forged ids, or prototype pollution.
+ *
  * Feed shapes verified against the real data 2026-08-15; see docs/data/README.md.
  */
 
-const dateOrNull = (v) =>
-  typeof v === 'string' && /^\d{4}-\d{2}-\d{2}/.test(v) ? v.slice(0, 10) : null;
+/* ======================= sanitize layer ======================= */
+
+const NAME_MAX = 300; // names, statuses, org strings
+const STMT_MAX = 2000; // KSI statements
+// C0 controls (0x00-0x1F), DEL (0x7F), and C1 controls (0x80-0x9F).
+const CONTROL_CHARS = /[\u0000-\u001F\u007F-\u009F]/g;
+
+/** Must be a string → strip control chars, trim, cap length; anything else → null. */
+const cleanStr = (v, max = NAME_MAX) => {
+  if (typeof v !== 'string') return null;
+  const s = v.replace(CONTROL_CHARS, '').trim();
+  if (!s) return null;
+  return s.length > max ? s.slice(0, max) : s;
+};
+
+// Real ids seen in the feeds: F1607067912, FR2315464863, AGENCYAMAZONEW, 22-012.
+const ID_RE = /^[A-Za-z0-9._-]{1,64}$/;
+const FORBIDDEN_KEYS = new Set(['__proto__', 'prototype', 'constructor']);
+
+/** Must match the strict id pattern (and never a prototype-polluting key) → else null. */
+const cleanId = (v) => (typeof v === 'string' && ID_RE.test(v) && !FORBIDDEN_KEYS.has(v) ? v : null);
+
+/** Non-negative finite integer, else the fallback. Bounds hostile numerics. */
+const cleanCount = (v, fallback = 0) =>
+  typeof v === 'number' && Number.isFinite(v) && v >= 0 ? Math.min(Math.trunc(v), 1_000_000_000) : fallback;
+
+const DATE_MIN = '1990-01-01'; // FedRAMP didn't exist before 2011; generous floor
+
+/**
+ * Strict date: `YYYY-MM-DD` prefix, a REAL calendar date (Date.UTC round-trip,
+ * so 2026-02-31 and 9999-99-99 are rejected), within [1990-01-01, today+1d].
+ */
+const dateOrNull = (v) => {
+  if (typeof v !== 'string' || !/^\d{4}-\d{2}-\d{2}/.test(v)) return null;
+  const s = v.slice(0, 10);
+  const y = Number(s.slice(0, 4));
+  const m = Number(s.slice(5, 7));
+  const d = Number(s.slice(8, 10));
+  const t = new Date(Date.UTC(y, m - 1, d));
+  if (t.getUTCFullYear() !== y || t.getUTCMonth() !== m - 1 || t.getUTCDate() !== d) return null;
+  if (s < DATE_MIN) return null;
+  if (s > new Date(Date.now() + 86_400_000).toISOString().slice(0, 10)) return null;
+  return s;
+};
+
+/** The feed uses the literal string "Not Active" as its null sentinel. */
+const notSentinel = (s) => (s && s !== 'Not Active' ? s : null);
+
+/** Total-order string comparator (ISO dates compare correctly as strings). */
+const cmpStr = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
+
+/* ======================= products ======================= */
 
 /** Slim the 43-field marketplace product records down to what the site uses. */
 export function slimProducts(marketplace) {
-  const products = marketplace?.data?.Products ?? [];
-  return products.map((p) => ({
-    id: p.id,
-    csp: p.csp ?? null,
-    cso: p.cso ?? null,
-    offering: p.service_offering ?? null,
-    status: p.status ?? null,
-    impact: p.impact_level ?? null,
-    authType: p.auth_type && p.auth_type !== 'Not Active' ? p.auth_type : null,
-    authDate: dateOrNull(p.auth_date),
-    reuse: typeof p.reuse === 'number' ? p.reuse : 0,
-    assessor: p.independent_assessor && p.independent_assessor !== 'Not Active' ? p.independent_assessor : null,
-    models: Array.isArray(p.service_model) ? p.service_model : [],
-    deployment: p.deployment_model ?? null,
-    agencies: Array.isArray(p.agency_authorizations) ? p.agency_authorizations.length : 0,
-  }));
+  const products = Array.isArray(marketplace?.data?.Products) ? marketplace.data.Products : [];
+  const out = [];
+  for (const p of products) {
+    if (p === null || typeof p !== 'object') continue;
+    const id = cleanId(p.id);
+    if (!id) continue; // no trustworthy id → drop the record
+    out.push({
+      id,
+      csp: cleanStr(p.csp),
+      cso: cleanStr(p.cso),
+      offering: cleanStr(p.service_offering),
+      status: cleanStr(p.status),
+      impact: cleanStr(p.impact_level),
+      authType: notSentinel(cleanStr(p.auth_type)),
+      authDate: dateOrNull(p.auth_date),
+      reuse: cleanCount(p.reuse),
+      assessor: notSentinel(cleanStr(p.independent_assessor)),
+      models: Array.isArray(p.service_model) ? p.service_model.map((m) => cleanStr(m)).filter(Boolean) : [],
+      deployment: cleanStr(p.deployment_model),
+      agencies: Array.isArray(p.agency_authorizations) ? p.agency_authorizations.length : 0,
+    });
+  }
+  return out;
 }
 
+/** Tally by key. Built via Map so hostile keys can't touch any prototype. */
 const count = (arr, key) => {
-  const out = {};
+  const tally = new Map();
   for (const item of arr) {
     const k = key(item);
     if (k == null) continue;
-    out[k] = (out[k] ?? 0) + 1;
+    tally.set(k, (tally.get(k) ?? 0) + 1);
   }
-  return out;
+  return Object.fromEntries(tally);
 };
 
 export const is20x = (p) => typeof p.impact === 'string' && p.impact.startsWith('20x');
@@ -45,7 +114,7 @@ export function computeStats(marketplace) {
   const slim = slimProducts(marketplace);
   const authorized = slim.filter((p) => p.status === 'FedRAMP Authorized');
   return {
-    lastChange: marketplace?.meta?.last_change ?? null,
+    lastChange: cleanStr(marketplace?.meta?.last_change, 64),
     totals: {
       products: slim.length,
       byStatus: count(slim, (p) => p.status),
@@ -55,37 +124,63 @@ export function computeStats(marketplace) {
     authsByYear: count(authorized, (p) => p.authDate?.slice(0, 4)),
     authsByYear20x: count(authorized.filter(is20x), (p) => p.authDate?.slice(0, 4)),
     topReused: [...authorized]
-      .sort((a, b) => b.reuse - a.reuse)
+      .sort((a, b) => b.reuse - a.reuse || cmpStr(a.id, b.id))
       .slice(0, 15)
       .map((p) => ({ cso: p.cso, csp: p.csp, reuse: p.reuse, impact: p.impact })),
     topAssessors: Object.entries(count(authorized, (p) => p.assessor))
-      .sort((a, b) => b[1] - a[1])
+      .sort((a, b) => b[1] - a[1] || cmpStr(a[0], b[0]))
       .slice(0, 10)
       .map(([name, n]) => ({ name, count: n })),
   };
 }
 
+/* ======================= KSI catalog ======================= */
+
 /** Prune the consolidated rules file to the KSI catalog the site renders. */
 export function pruneKsi(rules) {
-  const families = Object.values(rules?.KSI ?? {}).map((fam) => ({
-    id: fam.id,
-    name: fam.name,
-    short: fam.short_name,
-    status: fam.status,
-    indicators: Object.entries(fam.indicators ?? {}).map(([id, ind]) => ({
-      id,
-      name: ind.name,
-      statement: ind.statement,
-      controls: ind.controls ?? [],
-      // per-class statement overrides, when FedRAMP varies an indicator by class
-      classes: ind.varies_by_class ?? null,
-    })),
-  }));
+  const families = [];
+  for (const fam of Object.values(rules?.KSI ?? {})) {
+    if (fam === null || typeof fam !== 'object') continue;
+    const famId = cleanId(fam.id);
+    if (!famId) continue;
+    const indicators = [];
+    for (const [rawId, ind] of Object.entries(fam.indicators ?? {})) {
+      const id = cleanId(rawId);
+      if (!id || ind === null || typeof ind !== 'object') continue;
+      indicators.push({
+        id,
+        name: cleanStr(ind.name),
+        statement: cleanStr(ind.statement, STMT_MAX),
+        controls: Array.isArray(ind.controls) ? ind.controls.map((c) => cleanId(c)).filter(Boolean) : [],
+        // per-class statement overrides, when FedRAMP varies an indicator by class
+        classes: cleanClassVariants(ind.varies_by_class),
+      });
+    }
+    families.push({
+      id: famId,
+      name: cleanStr(fam.name),
+      short: cleanStr(fam.short_name, 64),
+      status: cleanStr(fam.status, 64),
+      indicators,
+    });
+  }
   return {
-    version: rules?.info?.version ?? null,
-    updated: rules?.info?.last_updated ?? null,
+    version: cleanStr(rules?.info?.version, 64),
+    updated: dateOrNull(rules?.info?.last_updated),
     families,
   };
+}
+
+/** Sanitize the {classKey: {statement}} variation map; hostile keys dropped. */
+function cleanClassVariants(varies) {
+  if (varies === null || varies === undefined || typeof varies !== 'object') return null;
+  const out = {};
+  for (const [k, v] of Object.entries(varies)) {
+    const key = cleanId(k);
+    if (!key || v === null || typeof v !== 'object') continue;
+    out[key] = { statement: cleanStr(v.statement, STMT_MAX) };
+  }
+  return Object.keys(out).length ? out : null;
 }
 
 /* ======================= journey engine =======================
@@ -93,40 +188,67 @@ export function pruneKsi(rules) {
  * (source:"migration", coarse dates), out-of-order rows, duplicate transitions,
  * journeys missing a start or an end, and a mixed vocabulary of 15 statuses.
  * Invariants enforced here:
- *   1. events are sorted by (transition_date, recorded_date), ascending
+ *   1. events are sorted by (transition_date, recorded_date, to_status, input
+ *      order) — a total order, so ties are deterministic
  *   2. consecutive duplicates (same date + same to_status) collapse to one
  *   3. an "end" is the FIRST event matching END_STATUS; the "start" is the
- *      first event before it that is neither an end nor a delisting
+ *      first event BEFORE it matching START_STATUS. Pre-process designations
+ *      (FedRAMP Ready / "FRR") stay in the events chain — they're real
+ *      history — but they do not start the clock
  *   4. duration (days) exists only when start < end; everything else is
  *      excluded and COUNTED, never silently dropped
  *   5. migration-sourced journeys are flagged (their early dates are coarser)
+ *   6. `current` is the last event of the FULL chain, delistings included —
+ *      a delisted service must never report its old status as current
  * Vocabulary verified against the live feed 2026-08-15.
  */
 
-const END_STATUS = /^(authorized$|fedramp certified)/i; // Authorized, FedRAMP Certified, FedRAMP Certified (In Remediation)
+// Authorized, FedRAMP Certified, FedRAMP Certified (In Remediation)
+export const END_STATUS = /^(authorized$|fedramp certified)/i;
+export const isEndStatus = (s) => typeof s === 'string' && END_STATUS.test(s);
+
+// In-process-type statuses that start the clock. Matches the verified
+// vocabulary: JAB Review, Agency Review, PMO Review, Initial Program Review,
+// Final Program Review, FedRAMP In Process, Agency In Process, Agency
+// Authorization In Process, Initial Implementation — and deliberately
+// EXCLUDES "FRR" (FedRAMP Ready, a pre-process readiness designation).
+export const START_STATUS = /(in process|review|initial implementation)/i;
+
 const DELISTED = /no status found/i;
+
+// 20x-path predicate. Verified vocabulary (live feed 2026-08-15):
+// cert_path ∈ {JAB, Agency, Program, 20x}, cert_type ∈ {Rev5, 20x, ''}.
+// "Program" is the marketplace's label for the 20x program path.
+const isPath20x = (e) => e.type === '20x' || e.path === '20x' || e.path === 'Program';
 
 /** Build per-product journeys from the raw changelog. Returns {journeys, excluded}. */
 export function buildJourneys(changelog) {
-  const rows = changelog?.data?.certprocessstatuschangelog ?? [];
+  const rows = Array.isArray(changelog?.data?.certprocessstatuschangelog)
+    ? changelog.data.certprocessstatuschangelog
+    : [];
   const byProduct = new Map();
+  let idx = 0;
   for (const r of rows) {
+    if (r === null || typeof r !== 'object') continue;
+    const id = cleanId(r.product_id);
     const date = dateOrNull(r.transition_date);
-    if (!date || !r.to_status || !r.product_id) continue;
-    if (!byProduct.has(r.product_id)) byProduct.set(r.product_id, { csp: null, cso: null, evs: [] });
-    const g = byProduct.get(r.product_id);
+    const to = cleanStr(r.to_status);
+    if (!id || !date || !to) continue;
+    if (!byProduct.has(id)) byProduct.set(id, { csp: null, cso: null, evs: [] });
+    const g = byProduct.get(id);
     if (!g.cso && (r.cso || r.csp)) {
-      g.cso = r.cso || null;
-      g.csp = r.csp || null;
+      g.cso = cleanStr(r.cso);
+      g.csp = cleanStr(r.csp);
     }
     g.evs.push({
       date,
-      to: r.to_status,
-      class: r.cert_class || null,
-      path: r.cert_path || null,
-      type: r.cert_type || null,
-      source: r.source || null,
-      recorded: r.recorded_date || '',
+      to,
+      class: cleanStr(r.cert_class, 64),
+      path: cleanStr(r.cert_path, 64),
+      type: cleanStr(r.cert_type, 64),
+      source: cleanStr(r.source, 64),
+      recorded: cleanStr(r.recorded_date, 64) ?? '',
+      idx: idx++,
     });
   }
 
@@ -135,10 +257,12 @@ export function buildJourneys(changelog) {
 
   for (const [id, group] of byProduct) {
     const evs = group.evs;
-    evs.sort((a, b) => (a.date === b.date ? (a.recorded < b.recorded ? -1 : 1) : a.date < b.date ? -1 : 1));
+    // total order: same-instant ties resolved by recorded date, then status
+    // text, then input position — reruns and reordered inputs agree
+    evs.sort((a, b) => cmpStr(a.date, b.date) || cmpStr(a.recorded, b.recorded) || cmpStr(a.to, b.to) || a.idx - b.idx);
     const deduped = evs.filter((e, i) => i === 0 || !(e.date === evs[i - 1].date && e.to === evs[i - 1].to));
 
-    const is20x = deduped.some((e) => e.type === '20x' || e.path === '20x' || e.path === 'Program');
+    const is20x = deduped.some(isPath20x);
     const migration = deduped.some((e) => e.source === 'migration');
     const live = deduped.filter((e) => !DELISTED.test(e.to));
     if (!live.length) {
@@ -146,13 +270,13 @@ export function buildJourneys(changelog) {
       continue;
     }
 
-    const endIdx = live.findIndex((e) => END_STATUS.test(e.to));
-    const start = endIdx === -1 ? live.find((e) => !END_STATUS.test(e.to)) : live.slice(0, endIdx).find((e) => !END_STATUS.test(e.to));
+    const endIdx = live.findIndex((e) => isEndStatus(e.to));
     const end = endIdx === -1 ? null : live[endIdx];
+    const start = end ? (live.slice(0, endIdx).find((e) => START_STATUS.test(e.to)) ?? null) : null;
 
     let days = null;
     if (!end) excluded.noEnd++;
-    else if (!start) excluded.noStart++; // e.g. migration backfill starting at "Authorized"
+    else if (!start) excluded.noStart++; // e.g. backfill starting at "Authorized", or FRR-only prehistory
     else if (end.date <= start.date) excluded.invalidOrder++;
     else days = Math.round((new Date(end.date) - new Date(start.date)) / 86_400_000);
 
@@ -165,94 +289,152 @@ export function buildJourneys(changelog) {
       days,
       start: days != null ? start.date : null,
       end: days != null ? end.date : null,
-      current: live[live.length - 1].to,
+      // full chain, delistings included — see invariant 6
+      current: deduped[deduped.length - 1].to,
       events: deduped.map((e) => ({ date: e.date, to: e.to, class: e.class })),
     });
   }
   return { journeys, excluded };
 }
 
-const percentile = (sorted, p) => sorted[Math.min(sorted.length - 1, Math.floor((sorted.length * p) / 100))];
+/* ======================= journey statistics ======================= */
 
-/** Duration statistics over measured journeys, split legacy vs 20x-path. */
-export function journeyStats({ journeys, excluded }) {
-  const measured = journeys.filter((j) => j.days != null);
-  const split = (list) => {
-    const days = list.map((j) => j.days).sort((a, b) => a - b);
-    if (!days.length) return { n: 0, p10: null, p50: null, p90: null };
-    return { n: days.length, p10: percentile(days, 10), p50: percentile(days, 50), p90: percentile(days, 90) };
-  };
-  const BIN = 90;
-  const MAXBIN = 12; // last bin is open-ended: 990+ days
+/** Nearest-rank percentile over an ascending-sorted array. */
+const percentile = (sorted, p) => sorted[Math.max(0, Math.ceil((p / 100) * sorted.length) - 1)];
+
+/** p10/p50/p90 for one cohort of journeys. */
+const durationSplit = (list) => {
+  const days = list.map((j) => j.days).sort((a, b) => a - b);
+  if (!days.length) return { n: 0, p10: null, p50: null, p90: null };
+  return { n: days.length, p10: percentile(days, 10), p50: percentile(days, 50), p90: percentile(days, 90) };
+};
+
+const BIN = 90;
+const MAXBIN = 12; // last bin is open-ended: 990+ days
+
+/** 90-day histogram; labels are inclusive ranges (0–89, 90–179, …, 990+). */
+const buildHistogram = (measured) => {
   const histogram = Array.from({ length: MAXBIN }, (_, i) => ({
-    label: i === MAXBIN - 1 ? `${i * BIN}+` : `${i * BIN}–${(i + 1) * BIN}`,
+    label: i === MAXBIN - 1 ? `${i * BIN}+` : `${i * BIN}–${(i + 1) * BIN - 1}`,
     count: 0,
   }));
   for (const j of measured) {
     histogram[Math.min(MAXBIN - 1, Math.floor(j.days / BIN))].count++;
   }
+  return histogram;
+};
+
+/** Fastest measured journeys finishing on/after `since`, quickest first. */
+const fastestSince = (measured, since, n) =>
+  measured
+    .filter((j) => j.end && j.end >= since)
+    .sort((a, b) => a.days - b.days || cmpStr(a.id, b.id))
+    .slice(0, n)
+    .map((j) => ({ id: j.id, cso: j.cso, csp: j.csp, days: j.days, end: j.end, is20x: j.is20x }));
+
+/** Duration statistics over measured journeys, split legacy vs 20x-path. */
+export function journeyStats({ journeys, excluded }) {
+  const measured = journeys.filter((j) => j.days != null);
   return {
     totalWithEvents: journeys.length,
     measured: measured.length,
     excluded,
-    all: split(measured),
-    path20x: split(measured.filter((j) => j.is20x)),
-    legacy: split(measured.filter((j) => !j.is20x)),
-    cleanOnly: split(measured.filter((j) => !j.migration)),
-    histogram,
-    fastest: [...measured]
-      .filter((j) => j.end && j.end >= '2025-01-01')
-      .sort((a, b) => a.days - b.days)
-      .slice(0, 12)
-      .map((j) => ({ id: j.id, cso: j.cso, csp: j.csp, days: j.days, end: j.end, is20x: j.is20x })),
+    all: durationSplit(measured),
+    path20x: durationSplit(measured.filter((j) => j.is20x)),
+    legacy: durationSplit(measured.filter((j) => !j.is20x)),
+    histogram: buildHistogram(measured),
+    fastest: fastestSince(measured, '2025-01-01', 12),
   };
 }
 
+/* ======================= activity + directories ======================= */
+
 /** Merged live-activity feed: status transitions + dated agency reuses/ATOs. */
 export function buildActivity(marketplace, changelog, { limit = 120 } = {}) {
-  const products = new Map((marketplace?.data?.Products ?? []).map((p) => [p.id, p]));
+  const max = Number.isInteger(limit) && limit > 0 ? limit : 120;
+  const rawProducts = Array.isArray(marketplace?.data?.Products) ? marketplace.data.Products : [];
+  const products = new Map();
+  for (const p of rawProducts) {
+    if (p === null || typeof p !== 'object') continue;
+    const id = cleanId(p.id);
+    if (id) products.set(id, p);
+  }
   const out = [];
   for (const e of pruneChangelog(changelog)) {
     out.push({ date: e.date, kind: 'status', to: e.to, class: e.class, cso: e.cso, csp: e.csp });
   }
-  for (const r of marketplace?.data?.ReuseMapping ?? []) {
+  const reuses = Array.isArray(marketplace?.data?.ReuseMapping) ? marketplace.data.ReuseMapping : [];
+  for (const r of reuses) {
+    if (r === null || typeof r !== 'object') continue;
     const date = dateOrNull(r.auth_date) ?? dateOrNull(r.ato_date);
-    const p = products.get(r.id);
+    const p = products.get(cleanId(r.id));
     if (!date || !p) continue;
-    const agency = r.sub ? `${r.parent} — ${r.sub}` : r.parent;
-    out.push({ date, kind: 'reuse', agency, cso: p.cso ?? p.service_offering, csp: p.csp });
+    out.push({
+      date,
+      kind: 'reuse',
+      agency: agencyName(r),
+      cso: cleanStr(p.cso) ?? cleanStr(p.service_offering),
+      csp: cleanStr(p.csp),
+    });
   }
-  return out.sort((a, b) => (a.date < b.date ? 1 : -1)).slice(0, limit);
+  return out
+    .map((e, i) => ({ ...e, idx: i }))
+    .sort((a, b) => cmpStr(b.date, a.date) || a.idx - b.idx) // newest first; ties keep build order
+    .slice(0, max)
+    .map(({ idx, ...e }) => e);
 }
+
+/** "Parent — Sub" display name for an agency-ish row (agencies + reuse mapping). */
+const agencyName = (row) => {
+  const parent = cleanStr(row.parent);
+  const sub = cleanStr(row.sub);
+  return parent && sub ? `${parent} — ${sub}` : parent;
+};
 
 /** Slim agency directory; product references are ids, resolved client-side. */
 export function slimAgencies(marketplace) {
-  return (marketplace?.data?.Agencies ?? []).map((a) => ({
-    id: a.id,
-    name: a.sub ? `${a.parent} — ${a.sub}` : a.parent,
-    authorizations: a.authorization ?? 0,
-    reuse: a.reuse ?? 0,
-    auths: (a.auths ?? []).map((x) => x.id),
-    reuses: (a.reuses ?? []).map((x) => x.id),
-  }));
+  const agencies = Array.isArray(marketplace?.data?.Agencies) ? marketplace.data.Agencies : [];
+  const out = [];
+  for (const a of agencies) {
+    if (a === null || typeof a !== 'object') continue;
+    const id = cleanId(a.id);
+    if (!id) continue;
+    out.push({
+      id,
+      name: agencyName(a),
+      authorizations: cleanCount(a.authorization),
+      reuse: cleanCount(a.reuse),
+      auths: Array.isArray(a.auths) ? a.auths.map((x) => cleanId(x?.id)).filter(Boolean) : [],
+      reuses: Array.isArray(a.reuses) ? a.reuses.map((x) => cleanId(x?.id)).filter(Boolean) : [],
+    });
+  }
+  return out;
 }
 
 /** Slim + filter status-change events; newest first. */
 export function pruneChangelog(changelog, { since = null, limit = null } = {}) {
-  const events = changelog?.data?.certprocessstatuschangelog ?? [];
+  const events = Array.isArray(changelog?.data?.certprocessstatuschangelog)
+    ? changelog.data.certprocessstatuschangelog
+    : [];
   let out = events
-    .map((e) => ({
-      date: dateOrNull(e.transition_date),
-      csp: e.csp || null,
-      cso: e.cso || null,
-      type: e.cert_type || null,
-      path: e.cert_path || null,
-      class: e.cert_class || null,
-      from: e.from_status || null,
-      to: e.to_status || null,
-    }))
-    .filter((e) => e.date && e.to)
-    .sort((a, b) => (a.date < b.date ? 1 : -1));
+    .map((e, i) =>
+      e === null || typeof e !== 'object'
+        ? null
+        : {
+            date: dateOrNull(e.transition_date),
+            csp: cleanStr(e.csp),
+            cso: cleanStr(e.cso),
+            type: cleanStr(e.cert_type, 64),
+            path: cleanStr(e.cert_path, 64),
+            class: cleanStr(e.cert_class, 64),
+            from: cleanStr(e.from_status),
+            to: cleanStr(e.to_status),
+            idx: i,
+          },
+    )
+    .filter((e) => e && e.date && e.to)
+    .sort((a, b) => cmpStr(b.date, a.date) || a.idx - b.idx) // newest first; ties keep feed order
+    .map(({ idx, ...e }) => e);
   if (since) out = out.filter((e) => e.date >= since);
   if (limit) out = out.slice(0, limit);
   return out;

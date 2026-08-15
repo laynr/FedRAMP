@@ -29,8 +29,25 @@ text nobody visits twice.* So v2 inverted the product: **tool first, explainer d
    rows, duplicates, incomplete journeys). Reconstructing per-service journeys and
    time-to-authorization analytics from it — with documented invariants, counted exclusions,
    and adversarial test fixtures — is provenance-and-correctness engineering, the same muscle
-   regulated-environment work uses. It surfaced a finding nobody publishes: **median 70 days to
-   certified on the 20x path vs 361 legacy** (n stated, caveats in-app).
+   regulated-environment work uses. It surfaced a finding I couldn't find published anywhere:
+   **median 70 days to certified on the 20x path vs 327
+   legacy** (n stated, caveats in-app).
+
+The v1 explainer wasn't discarded, though — reviewing v2 as a newcomer showed the tool now
+assumed knowledge the explainer used to teach. It came back as a dedicated
+[Learn page](https://laynr.github.io/FedRAMP/learn.html), updated and re-cited, so the tool and
+the teaching each get the format they deserve.
+
+### The hardening pass
+
+Before submission I ran three parallel review agents — code quality, security, content accuracy
+— against the finished product, and let the findings land where they fell. The most humbling:
+a percentile implementation off by one rank, which **changed the headline median this project
+exists to publish**. Also caught: XSS sinks reachable from the upstream feed (fixed with
+sanitize-at-boundary + escape-at-sink + CSP), a stale-view bug after live refresh, and a CI
+claim in this very document that wasn't yet true (it is now — see below). I'd rather ship the
+corrected number with the story of catching it than the wrong number with confidence; that
+verification culture is the actual deliverable.
 
 ## The non-obvious part
 
@@ -39,7 +56,7 @@ instead of narrated documents. This tool practices that on itself: figures compu
 from GSA's feeds (one click re-fetches live), KSI counts counted from the rules file rather than
 asserted (the current file says 46 indicators — most 2025-era articles still say 61), countdowns
 that age gracefully, and one set of pure transforms shared by CI and browser so the snapshot and
-live views can't disagree.
+live views run the same code.
 
 ## Key decisions & tradeoffs
 
@@ -53,9 +70,13 @@ live views can't disagree.
   saved state across devices, and monitoring. The static version was chosen deliberately: it
   demonstrates the data engineering and product thinking without an ops burden no reviewer can
   evaluate in ten minutes.
-- **Honesty as a feature.** Every explainer claim cited to a URL verified live (link auditor in
-  CI); exclusions counted and shown; the 20x/legacy comparison labeled directional; zero claims
-  about any specific company's strategy; "unofficial" in the masthead.
+- **Honesty as a feature.** Every explainer claim cited to a URL the link auditor verifies
+  (`tools/check-links.mjs`, run on a schedule by `.github/workflows/links.yml`; tests run on
+  every push via `ci.yml`); exclusions counted and shown; the 20x/legacy comparison labeled
+  directional; zero claims about any specific company's strategy; "unofficial" in the masthead.
+- **Hostile-input posture.** The upstream feed is treated as untrusted: sanitized at the parse
+  boundary, escaped at every sink, locked down with CSP, and exercised by hostile fixtures in
+  CI — because a tool that mirrors government data should be incapable of serving anything else.
 
 ## With more time
 
@@ -65,14 +86,15 @@ can query FedRAMP state; agency-level adoption trends over time.
 
 ## Time spent
 
-Approximately **X hours** (Layne: fill in — wall-clock from repo creation to submission),
-including a shipped v1 that was deliberately torn down for taste.
+<!-- LAYNE: fill in hours before submission (wall-clock from repo creation to submission) -->
+Approximately **__ hours**, including a shipped v1 that was deliberately torn down for taste.
 
 ## AI usage
 
 Built end to end with Claude Code — research (three parallel verification agents against live
-official sources), implementation, and closed-loop testing where Claude drove the app in Chrome
-itself: clicking every view, seeding localStorage to simulate a return visit, reading the
-console, fixing what it found, and re-verifying post-deploy. Transcripts accompany the
-submission. My role was direction and judgment: the concept, the accuracy rules (cited-or-cut,
-no company claims), the v1 teardown, and the two hard questions above.
+official sources), implementation, closed-loop testing where Claude drove the app in Chrome
+itself (clicking every view, seeding localStorage to simulate a return visit, reading the
+console, fixing what it found, and re-verifying post-deploy), and the pre-submission hardening
+pass described above. Transcripts accompany the submission. My role was direction and judgment:
+the concept, the accuracy rules (cited-or-cut, no company claims), the v1 teardown, and the two
+hard questions above.

@@ -2,6 +2,9 @@
  * Hand-rolled SVG charts. Specs follow the dataviz method: thin marks, 4px
  * rounded data-ends anchored to the baseline, 2px surface gaps between fills,
  * recessive grid, hover tooltips, text in ink tokens (never series color).
+ *
+ * Tooltips are DOM-built from structured data (never innerHTML) — feed-derived
+ * labels are hostile input and must not reach an HTML parser.
  */
 
 const SVGNS = 'http://www.w3.org/2000/svg';
@@ -18,15 +21,31 @@ function tooltip() {
   if (!tip) {
     tip = document.createElement('div');
     tip.className = 'chart-tip';
-    tip.setAttribute('role', 'status');
+    // Visual duplicate of content already accessible on the marks — hide from AT.
+    tip.setAttribute('aria-hidden', 'true');
     document.body.appendChild(tip);
+    // Backstop: any scroll (page or nested container) strands a positioned tip.
+    window.addEventListener('scroll', hideTip, { passive: true, capture: true });
   }
   return tip;
 }
 
-function showTip(html, evt) {
+/**
+ * Show the tooltip. `content` is structured — { title, lines: [...] } — and is
+ * rendered via textContent only (no HTML interpretation of data values).
+ */
+function showTip(content, evt) {
   const tip = tooltip();
-  tip.innerHTML = html;
+  tip.textContent = '';
+  const title = document.createElement('strong');
+  title.textContent = String(content?.title ?? '');
+  tip.appendChild(title);
+  for (const line of content?.lines ?? []) {
+    if (line == null || line === '') continue;
+    const div = document.createElement('div');
+    div.textContent = String(line);
+    tip.appendChild(div);
+  }
   tip.style.display = 'block';
   const pad = 12;
   const { innerWidth } = window;
@@ -37,29 +56,60 @@ function showTip(html, evt) {
   tip.style.top = `${evt.clientY + window.scrollY - rect.height - pad}px`;
 }
 
-function hideTip() {
-  const tip = tooltip();
-  tip.style.display = 'none';
+export function hideTip() {
+  const tip = document.querySelector('.chart-tip');
+  if (tip) tip.style.display = 'none';
+}
+
+// One-time per-container listeners (survive innerHTML re-renders without stacking).
+const tipBound = new WeakSet();
+function bindTipBackstop(container) {
+  if (tipBound.has(container)) return;
+  tipBound.add(container);
+  container.addEventListener('mouseleave', hideTip);
+}
+
+function renderEmptyState(container, message = 'No data to chart yet.') {
+  const p = document.createElement('p');
+  p.className = 'chart-empty';
+  p.style.color = 'var(--muted, #6b7280)';
+  p.style.fontSize = '0.85rem';
+  p.textContent = message;
+  container.appendChild(p);
 }
 
 /**
  * Stacked column chart (two series max) with year x-axis.
  * data: [{label, values: [v1, v2]}], seriesNames: [s1, s2]
+ * opts.ariaLabel: caller-provided accessible description (defaults to a
+ * generic "by year" phrasing — pass one whenever the x-axis isn't years).
  */
-export function stackedColumns(container, data, seriesNames, { valueLabel = null } = {}) {
+export function stackedColumns(container, data, seriesNames, { valueLabel = null, ariaLabel = null } = {}) {
   container.innerHTML = '';
+  hideTip(); // a re-render under the cursor must not strand a pinned tooltip
+  bindTipBackstop(container);
+  const max = data.length
+    ? Math.max(...data.map((d) => d.values.reduce((a, b) => a + b, 0)))
+    : 0;
+  if (!data.length || !Number.isFinite(max) || max <= 0) {
+    renderEmptyState(container);
+    return;
+  }
   const W = 720;
   const H = 300;
   const M = { top: 18, right: 8, bottom: 26, left: 36 };
   const iw = W - M.left - M.right;
   const ih = H - M.top - M.bottom;
-  const max = Math.max(...data.map((d) => d.values.reduce((a, b) => a + b, 0)));
-  const yMax = Math.ceil(max / 25) * 25;
+  const yMax = Math.max(25, Math.ceil(max / 25) * 25);
   const y = (v) => ih - (v / yMax) * ih;
   const bw = Math.min(34, (iw / data.length) * 0.68);
   const step = iw / data.length;
 
-  const svg = el('svg', { viewBox: `0 0 ${W} ${H}`, role: 'img', 'aria-label': `Column chart: ${seriesNames.join(' and ')} by year` });
+  const svg = el('svg', {
+    viewBox: `0 0 ${W} ${H}`,
+    role: 'img',
+    'aria-label': ariaLabel || `Column chart: ${seriesNames.join(' and ')} by year`,
+  });
   const g = el('g', { transform: `translate(${M.left},${M.top})` });
   svg.appendChild(g);
 
@@ -74,6 +124,7 @@ export function stackedColumns(container, data, seriesNames, { valueLabel = null
   data.forEach((d, i) => {
     const x = i * step + (step - bw) / 2;
     let acc = 0;
+    let renderedBelow = false; // gap only when a previous segment actually drew
     const total = d.values.reduce((a, b) => a + b, 0);
     d.values.forEach((v, si) => {
       if (v <= 0) { acc += v; return; }
@@ -81,16 +132,20 @@ export function stackedColumns(container, data, seriesNames, { valueLabel = null
       const h = y(acc) - yTop;
       const isTopSegment = acc + v >= total;
       // 4px rounded top on the top segment only; 2px gap between stacked fills
-      const gap = si > 0 ? 2 : 0;
+      const gap = renderedBelow ? 2 : 0;
       const rect = el('rect', {
         x, y: yTop + gap, width: bw, height: Math.max(0, h - gap),
         rx: isTopSegment ? 4 : 0,
         class: `series-${si + 1}`,
       });
       const name = seriesNames[si];
-      rect.addEventListener('mousemove', (evt) => showTip(`<strong>${d.label}</strong><br>${name}: ${v}<br>total: ${total}`, evt));
+      rect.addEventListener('mousemove', (evt) => showTip({
+        title: d.label,
+        lines: [`${name}: ${v}`, `total: ${total}`],
+      }, evt));
       rect.addEventListener('mouseleave', hideTip);
       g.appendChild(rect);
+      renderedBelow = true;
       acc += v;
     });
     // x labels (skip some if crowded)
@@ -112,8 +167,13 @@ export function stackedColumns(container, data, seriesNames, { valueLabel = null
 }
 
 /** Single-series column chart (histogram). data: [{label, count}] */
-export function columns(container, data, { seriesName = '', valueLabel = null } = {}) {
-  stackedColumns(container, data.map((d) => ({ label: d.label, values: [d.count] })), [seriesName], { valueLabel });
+export function columns(container, data, { seriesName = '', valueLabel = null, ariaLabel = null } = {}) {
+  stackedColumns(
+    container,
+    data.map((d) => ({ label: d.label, values: [d.count] })),
+    [seriesName],
+    { valueLabel, ariaLabel },
+  );
 }
 
 /**
@@ -122,17 +182,28 @@ export function columns(container, data, { seriesName = '', valueLabel = null } 
  */
 export function barList(container, data, { format = (v) => String(v) } = {}) {
   container.innerHTML = '';
-  const max = Math.max(...data.map((d) => d.value));
+  hideTip();
+  bindTipBackstop(container);
+  if (!data.length) {
+    renderEmptyState(container);
+    return;
+  }
+  const rawMax = Math.max(...data.map((d) => Number(d.value) || 0));
+  const max = Number.isFinite(rawMax) && rawMax > 0 ? rawMax : 0;
   for (const d of data) {
     const row = document.createElement('div');
     row.className = 'barlist-row';
-    const pct = Math.max(1.5, (d.value / max) * 100);
+    const pct = max > 0 ? Math.max(1.5, (d.value / max) * 100) : 0;
     row.innerHTML = `
       <div class="barlist-label"><span class="barlist-name"></span><span class="barlist-sub"></span></div>
-      <div class="barlist-track"><div class="barlist-bar" style="width:${pct}%"></div><span class="barlist-value">${format(d.value)}</span></div>`;
+      <div class="barlist-track"><div class="barlist-bar" style="width:${pct}%"></div><span class="barlist-value"></span></div>`;
     row.querySelector('.barlist-name').textContent = d.label;
     row.querySelector('.barlist-sub').textContent = d.sub ?? '';
-    row.addEventListener('mousemove', (evt) => showTip(`<strong>${d.label}</strong><br>${d.sub ?? ''}<br>${format(d.value)}`, evt));
+    row.querySelector('.barlist-value').textContent = format(d.value);
+    row.addEventListener('mousemove', (evt) => showTip({
+      title: d.label,
+      lines: [d.sub ?? '', format(d.value)],
+    }, evt));
     row.addEventListener('mouseleave', hideTip);
     container.appendChild(row);
   }

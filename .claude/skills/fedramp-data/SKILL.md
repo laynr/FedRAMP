@@ -15,11 +15,12 @@ node tools/fedramp-data.mjs products [--status S] [--impact I] [--search Q] [--l
 node tools/fedramp-data.mjs ksi                    # list the 10 KSI families
 node tools/fedramp-data.mjs ksi CNA                # indicators of one family (statement + NIST controls)
 node tools/fedramp-data.mjs changelog [--since YYYY-MM-DD] [--limit N] [--json]
+node tools/fedramp-data.mjs journeys [--fastest]   # reconstructed service journeys / fastest-to-certified
 node tools/fedramp-data.mjs stats                  # program stats (counts, auths/year, top reuse...)
 node tools/fedramp-data.mjs snapshot               # regenerate docs/data/*.json site bundles
 ```
 
-Examples: `products --impact "20x Moderate"` · `products --search vanta --json` · `changelog --since 2026-08-01`
+Examples: `products --impact "20x Moderate"` · `products --search vanta --json` · `changelog --since 2026-08-01` · `journeys --fastest`
 
 ## Sources (official; verified 2026-08-15)
 
@@ -32,5 +33,6 @@ Examples: `products --impact "20x Moderate"` · `products --search vanta --json`
 ## Notes
 
 - Statuses: `FedRAMP Authorized`, `FedRAMP In Process`, `Agency In Process`, `FedRAMP Ready`. Impacts include 20x classes: `20x Low`, `20x Moderate` alongside `Low/LI-SaaS/Moderate/High`.
-- Tests: `node --test tools/*.test.mjs` (add `RUN_LIVE=1` for the live shape-check). Run tests after changing any transform.
+- Tests: `node --test tools/*.test.mjs` — runs `transforms.test.mjs` (journey/percentile fixtures) and `hostile.test.mjs` (XSS payloads, `__proto__`, oversized strings, bad dates). Add `RUN_LIVE=1` for the live shape-check. Run tests after changing any transform.
+- `snapshot` writes all 8 bundles to `docs/data/` (`products`, `journeys`, `stats`, `agencies`, `activity`, `ksi`, `changelog`, `meta`) and runs an integrity guard first — it aborts rather than commit suspicious content (e.g. `<script` or `javascript:` surviving sanitization).
 - The pruned bundles in `docs/data/` are public API surface (documented in `docs/data/README.md`) — don't rename fields casually.

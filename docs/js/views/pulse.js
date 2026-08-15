@@ -1,22 +1,28 @@
 /** Pulse view: since-you-were-here card, animated tiles, live activity stream. */
 
 import { state, refreshLive, freshnessLabel, relativeDate } from '../data.js';
-import { stackedColumns } from '../charts.js';
-import { countUp, esc, fmt } from '../ui.js';
+import { stackedColumns, barList } from '../charts.js';
+import { countUp, esc, fmt, fmtOrDash } from '../ui.js';
 import { fingerprint, diffFingerprints } from '../watchlist.js';
-import { getWatchlist, commitFingerprints, onWatchChange, openServiceDrawer } from './services.js';
+import { getWatchlist, commitFingerprints, markVisited, onWatchChange, openServiceDrawer } from './services.js';
 
 export function renderPulse() {
   renderWatchCard();
   renderTiles();
   renderStream();
   renderYearsChart();
+  renderTopReused();
   document.getElementById('data-freshness').textContent = freshnessLabel();
   wireLiveButton();
-  onWatchChange(renderWatchCard);
+  onWatchChange(renderWatchCard); // Set-backed: same fn ref, registered once
 }
 
 // ---------- "since you were last here" ----------
+
+// savedAt captured at first render so the "(3d ago)" label stays stable for
+// the whole session, even after fingerprints commit / savedAt advances (M8).
+let sessionSince;
+let visitedMarked = false;
 
 function renderWatchCard() {
   const el = document.getElementById('watch-card');
@@ -32,44 +38,73 @@ function renderWatchCard() {
     return;
   }
 
-  const current = {};
+  if (sessionSince === undefined) sessionSince = watch.savedAt;
+  const since = sessionSince ? relativeDate(String(sessionSince).slice(0, 10)) : null;
+
+  // Null-prototype map: starred ids come from storage/feed — "__proto__" must stay inert.
+  const current = Object.create(null);
   for (const id of watch.starred) {
-    current[id] = fingerprint(state.productsById.get(id), state.journeysById.get(id));
+    if (state.productsById.has(id)) {
+      current[id] = fingerprint(state.productsById.get(id), state.journeysById.get(id));
+    }
   }
+  const missing = watch.starred.filter((id) => !state.productsById.has(id)).length;
+  const watching = watch.starred.length - missing;
+  const missingNote = missing ? ` <span class="sub">+${missing} no longer listed</span>` : '';
+
   const diffs = diffFingerprints(watch.fingerprints, current);
-  const since = watch.savedAt ? relativeDate(watch.savedAt.slice(0, 10)) : null;
 
   if (!diffs.length) {
     el.innerHTML = `<div class="panel watch">
-      <strong>Watching ${watch.starred.length} service${watch.starred.length === 1 ? '' : 's'}</strong>
+      <strong>Watching ${watching} service${watching === 1 ? '' : 's'}</strong>${missingNote}
       <span class="sub">— no changes${since ? ` since your last visit (${since})` : ' yet'}. We’ll flag anything that moves.</span>
     </div>`;
   } else {
     el.innerHTML = `<div class="panel watch changed">
-      <strong>Since you were last here${since ? ` (${since})` : ''}:</strong>
+      <strong>Since you were last here${since ? ` (${since})` : ''}:</strong>${missingNote}
       ${diffs.map((d) => {
         const p = state.productsById.get(d.id);
-        const parts = d.changes.map((c) => `${c.field === 'latest' ? 'status event' : c.field}: ${esc(c.from)} → <strong>${esc(c.to)}</strong>`).join(' · ');
-        return `<div class="watch-diff" data-open="${esc(d.id)}"><span class="watch-name">${esc(p?.cso ?? d.id)}</span> ${parts}</div>`;
+        const parts = d.changes.map((c) =>
+          c.field === 'listed'
+            ? '<strong>no longer in the marketplace feed</strong>'
+            : `${c.field === 'latest' ? 'status event' : c.field}: ${esc(c.from)} → <strong>${esc(c.to)}</strong>`
+        ).join(' · ');
+        const name = `<span class="watch-name">${esc(p?.cso ?? d.id)}</span>`;
+        // Only resolvable services get a button (there is a profile to open).
+        return p
+          ? `<button class="watch-diff" data-open="${esc(d.id)}">${name} ${parts}</button>`
+          : `<div class="watch-diff">${name} ${parts}</div>`;
       }).join('')}
     </div>`;
     el.querySelectorAll('[data-open]').forEach((row) =>
       row.addEventListener('click', () => openServiceDrawer(row.dataset.open))
     );
   }
-  commitFingerprints();
+  // Diff against STORED fingerprints, render, THEN commit — and only when
+  // something actually changed (avoids a redundant write on every repaint).
+  if (diffs.length) commitFingerprints();
+  if (!visitedMarked) {
+    visitedMarked = true;
+    markVisited(); // savedAt advances exactly once per page load
+  }
 }
 
 // ---------- tiles ----------
 
 function renderTiles() {
-  const s = state.stats;
+  const s = state.stats ?? {};
+  const byStatus = s.totals?.byStatus;
   const js = s.journeys;
   const tiles = [
-    { label: 'services FedRAMP Authorized', value: s.totals.byStatus['FedRAMP Authorized'] ?? 0 },
-    { label: 'in process right now', value: (s.totals.byStatus['FedRAMP In Process'] ?? 0) + (s.totals.byStatus['Agency In Process'] ?? 0) },
-    { label: 'authorized under 20x', value: s.totals.authorized20x },
-    { label: 'median days to certified — 20x path', value: js?.path20x?.p50, note: `vs ${fmt(js?.legacy?.p50)} on legacy paths`, accent: true },
+    { label: 'services FedRAMP Authorized', value: byStatus?.['FedRAMP Authorized'] },
+    { label: 'in process right now', value: byStatus ? (byStatus['FedRAMP In Process'] ?? 0) + (byStatus['Agency In Process'] ?? 0) : null },
+    { label: 'authorized under 20x', value: s.totals?.authorized20x },
+    {
+      label: 'median days to certified — 20x path',
+      value: js?.path20x?.p50,
+      note: `vs ${fmtOrDash(js?.legacy?.p50)} on legacy paths · n = ${fmtOrDash(js?.path20x?.n)} recent journeys — see “How long?” for method`,
+      accent: true,
+    },
   ];
   const wrap = document.getElementById('pulse-tiles');
   wrap.innerHTML = tiles.map((t) => `
@@ -78,14 +113,18 @@ function renderTiles() {
       <div class="tile-label">${esc(t.label)}</div>
       ${t.note ? `<div class="tile-note">${esc(t.note)}</div>` : ''}
     </div>`).join('');
-  [...wrap.querySelectorAll('.tile-value')].forEach((el, i) => countUp(el, tiles[i].value ?? 0));
+  [...wrap.querySelectorAll('.tile-value')].forEach((el, i) => {
+    const v = tiles[i].value;
+    if (v == null || Number.isNaN(Number(v))) el.textContent = '—';
+    else countUp(el, Number(v));
+  });
 }
 
 // ---------- activity stream ----------
 
 function renderStream() {
   const feed = document.getElementById('activity-stream');
-  feed.innerHTML = state.activity.slice(0, 22).map((e) => {
+  feed.innerHTML = (state.activity ?? []).slice(0, 22).map((e) => {
     if (e.kind === 'reuse') {
       return `<li><span class="feed-date">${relativeDate(e.date)}</span>
         <span class="feed-icon" title="agency adoption">🏛️</span>
@@ -97,37 +136,81 @@ function renderStream() {
   }).join('');
 }
 
-// ---------- chart ----------
+// ---------- charts ----------
 
 function renderYearsChart() {
-  const s = state.stats;
-  const years = Object.keys(s.authsByYear).sort();
+  const s = state.stats ?? {};
+  const byYear = s.authsByYear ?? {};
+  const byYear20x = s.authsByYear20x ?? {};
+  const years = Object.keys(byYear).sort();
   const data = years.map((yr) => ({
     label: `’${yr.slice(2)}`,
-    values: [(s.authsByYear[yr] ?? 0) - (s.authsByYear20x[yr] ?? 0), s.authsByYear20x[yr] ?? 0],
+    values: [(byYear[yr] ?? 0) - (byYear20x[yr] ?? 0), byYear20x[yr] ?? 0],
   }));
   stackedColumns(document.getElementById('chart-years'), data, ['Rev5 & legacy paths', 'FedRAMP 20x'], {
     valueLabel: (v) => `${v}`,
+    ariaLabel: 'Authorized services per year, split by path',
   });
+}
+
+/**
+ * Most-reused authorizations — reuse is the whole point of the program.
+ * The panel is created from JS (index.html carries no static element for it);
+ * rows are informational only: stats.topReused carries no product ids.
+ */
+function renderTopReused() {
+  let panel = document.getElementById('panel-top-reused');
+  if (!panel) {
+    panel = document.createElement('div');
+    panel.id = 'panel-top-reused';
+    panel.className = 'panel';
+    const h = document.createElement('h3');
+    h.textContent = 'Most-reused authorizations';
+    const sub = document.createElement('p');
+    sub.className = 'sub';
+    sub.textContent = 'Reuse is the whole point: prove security once, and agencies across government adopt it.';
+    const chart = document.createElement('div');
+    chart.id = 'chart-top-reused';
+    panel.append(h, sub, chart);
+    const freshPanel = document.getElementById('data-freshness')?.closest('.panel');
+    if (freshPanel?.parentElement) freshPanel.parentElement.insertBefore(panel, freshPanel);
+    else document.getElementById('view-pulse')?.appendChild(panel);
+  }
+  barList(
+    document.getElementById('chart-top-reused'),
+    (state.stats?.topReused ?? []).slice(0, 8).map((t) => ({
+      label: t.cso,
+      sub: `${t.csp ?? ''}${t.impact ? ` · ${t.impact}` : ''}`,
+      value: t.reuse,
+    })),
+    { format: (v) => `${fmt(v)} reuses` }
+  );
 }
 
 // ---------- live refresh ----------
 
 function wireLiveButton() {
   const btn = document.getElementById('refresh-live');
-  if (btn.dataset.wired) return; // renderPulse re-runs after live refresh; wire once
+  if (!btn || btn.dataset.wired) return; // renderPulse re-runs after live refresh; wire once
   btn.dataset.wired = '1';
+  const idleLabel = btn.textContent;
   btn.addEventListener('click', async () => {
     btn.disabled = true;
     btn.textContent = 'Fetching from GSA’s published feed…';
     try {
-      await refreshLive();
-      renderPulse();
+      await refreshLive(); // onStateChange re-renders every view, including this one
       btn.textContent = 'Refreshed from source ✓';
+      setTimeout(() => {
+        btn.textContent = idleLabel;
+        btn.disabled = false;
+      }, 1500);
     } catch (err) {
       console.error(err);
       btn.textContent = 'Live fetch failed — still on bundled snapshot';
       btn.disabled = false;
+      setTimeout(() => {
+        btn.textContent = idleLabel;
+      }, 4000);
     }
   });
 }
