@@ -63,7 +63,12 @@ export function closeDrawers() {
   backdrop().hidden = true;
 }
 
-export function countUp(el, target, { duration = 800, format = (v) => Math.round(v).toLocaleString('en-US') } = {}) {
+export function countUp(el, target, {
+  duration = 800,
+  format = Number.isInteger(target)
+    ? (v) => Math.round(v).toLocaleString('en-US')
+    : (v) => Number(v).toLocaleString('en-US', { maximumFractionDigits: 1 }),
+} = {}) {
   if (REDUCED || !target) {
     el.textContent = format(target ?? 0);
     return;

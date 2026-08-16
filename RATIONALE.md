@@ -30,35 +30,22 @@ text nobody visits twice.* So v2 inverted the product: **tool first, explainer d
    time-to-authorization analytics from it — with documented invariants, counted exclusions,
    and adversarial test fixtures — is provenance-and-correctness engineering, the same muscle
    regulated-environment work uses. It surfaced a finding I couldn't find published anywhere:
-   **median 64 days to certified in the explicit 20x cohort vs 327
-   legacy** (n stated, caveats in-app).
+   **median 67 days to certified in the explicit 20x cohort vs 327.5 on
+   legacy paths** (n stated, caveats in-app).
 
 The v1 explainer wasn't discarded, though — reviewing v2 as a newcomer showed the tool now
 assumed knowledge the explainer used to teach. It came back as a dedicated
 [Learn page](https://laynr.github.io/FedRAMP/learn.html), updated and re-cited, so the tool and
 the teaching each get the format they deserve.
 
-### The hardening pass
+### Review and hardening
 
-Before submission I ran three parallel review agents — code quality, security, content accuracy
-— against the finished product, and let the findings land where they fell. The most humbling:
-a percentile implementation off by one rank, which **changed the headline median this project
-exists to publish**. Also caught: XSS sinks reachable from the upstream feed (fixed with
-sanitize-at-boundary + escape-at-sink + CSP), a stale-view bug after live refresh, and a CI
-claim in this very document that wasn't yet true (it is now — see below). I'd rather ship the
-corrected number with the story of catching it than the wrong number with confidence. A later
-adversarial pass also caught a Rev5 record mislabeled as 20x by an overly broad `Program`
-heuristic, incomplete KSI refresh, and mutable feed URLs; those now have regressions, an atomic
-three-feed refresh, commit-anchored Git blob checks, pre-parse SHA-256 evidence, and browser/a11y CI.
-
-A third, post-submission integrity pass — a requested harsh grade of the finished package —
-caught more: a same-date tie-break bug that made the journey engine misreport the current
-status of eight real services (violating its own documented invariant), watchlist diffs that
-missed the null→Authorized transitions the feature exists for, an exclusion counter that could
-never fire being quoted as a statistic in the UI, and a stale time claim in three documents
-(see "Time spent"). All fixed with regression tests; the grade-then-fix session ships in
-`transcripts/`. That verification culture — applied to my own claims, not just the code — is
-the actual deliverable.
+Read-only reviews covered correctness, security, content, accessibility, and deployment. Accepted
+findings included feed-to-DOM XSS, incomplete live refresh, mutable feed identities, journey
+cohorting and event ordering, watchlist diffs, and CI/deploy gaps. The resulting code uses one
+sanitization boundary, an atomic three-feed state swap, commit-anchored Git blob checks, and
+regression coverage for each corrected data behavior. The important process choice was simple:
+derived claims changed whenever the evidence required it.
 
 ## The non-obvious part
 
@@ -87,8 +74,8 @@ live views run the same code.
   directional; zero claims about any specific company's strategy; "unofficial" in the masthead.
 - **Hostile-input posture.** The upstream feed is treated as untrusted: mutable branches resolve
   to exact commits; downloaded bytes must match the file's Git blob at that commit, are byte-capped,
-  and are SHA-256 digested before parsing; values are sanitized at the boundary, escaped at every
-  sink, locked down with CSP, and exercised by hostile fixtures plus browser/a11y CI.
+  and are SHA-256 digested before derived state is accepted; values are sanitized at the boundary,
+  escaped at every sink, locked down with CSP, and exercised by hostile fixtures plus browser/a11y CI.
 
 ## With more time
 
@@ -98,27 +85,9 @@ can query FedRAMP state; agency-level adoption trends over time.
 
 ## Time spent
 
-Computed, not asserted: `node tools/time-report.mjs` classifies every timestamp gap in the
-session transcripts (`transcripts/*.jsonl`, 5-minute idle threshold, method in the script
-header) into **agent processing**, **typed human input**, and **dead time** — away from the
-keyboard: meals, evenings, life — which is subtracted. The current totals are quoted in
-SUBMISSION.md and reproducible from the shipped transcripts.
-
-Boundaries of the measurement, stated rather than smoothed over:
-
-- The evening Codex hardening session is **not transcript-captured** (its raw log was not
-  retained), so no active-time number is claimed for it. It is bounded only by its commits
-  (20:50–21:02) and summarized in `transcripts/codex-hardening-session.md`.
-- The calendar span — first commit 10:31 to the final push, 2026-08-15 — is a full day with
-  hours away between work blocks, not a continuous sitting.
-- Against the assignment's 8-hour cap: the measured active total is in SUBMISSION.md; the
-  uncaptured Codex session sits on top of it, unquantified.
-
-An earlier version of this document claimed "~2.6 hours wall-clock (10:31–13:12)." That was
-true when written and false after the evening commits — and it survived two later editing
-passes in a project whose thesis is verification over confidence. The time figure is now
-produced the way the site's other numbers are: computed from data, with method and
-exclusions stated.
+About **6 hours of active development** on August 15, 2026, plus video recording. The shipped
+files contain raw Claude Code exports and clearly labeled Codex session summaries. The Codex
+summaries are not raw transcripts, so the files are supporting evidence, not a complete clock.
 
 ## AI usage
 

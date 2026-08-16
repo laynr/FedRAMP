@@ -44,15 +44,16 @@ all built on FedRAMP's own machine-readable data. Hosted on GitHub Pages.
   that "look safe" (30 real products contain `&` today; tomorrow's could contain worse).
 - **Data quirks:** marketplace impact levels include `20x Low` / `20x Moderate`; changelog
   `cert_type` / `cert_path` values include the literal string `20x`. Match accordingly.
-- **Percentile is nearest-rank: `ceil(p * n / 100) - 1`.** We shipped `floor()` first and it
-  skewed the headline median — an off-by-one-rank that survived until the hardening review.
+- **Use the statistic named in the UI.** Median is the middle observation, or the midpoint of
+  the middle pair for even cohorts; p10 and p90 use nearest rank. Keep fixtures for both odd and
+  even sample sizes.
 - **GSA's FedRAMP brand guide bars non-participants from using "FedRAMP" in a website title**
   (Brand Guide v2.1; USPTO reg. 5725620). Hence the product name "OnRamp" with "FedRAMP" as
   descriptor only, plus the trademark-acknowledgment + public-domain provenance lines in every
   footer. Never add the FedRAMP logo/stamp — that's the bright line requiring written permission.
 - **Government data is public domain (17 U.S.C. § 105), not "©".** Never write "Data © GSA";
   say it's a U.S. Government work in the public domain, and that derived stats are unofficial.
-- **Name statistical biases outright.** The 64-vs-327 comparison is right-censored (the 20x
+- **Name statistical biases outright.** The 67-vs-327.5 comparison is right-censored (the 20x
   program is too young to contain long journeys) and path attribution requires an explicit
   20x marker within the measured start-to-finish interval; both
   are stated in the method note. Hedging one sentence short of the mechanism reads as spin.

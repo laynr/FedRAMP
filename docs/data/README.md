@@ -24,7 +24,7 @@ If you need guaranteed freshness or the full records, please go straight to the 
 |---|---|---|
 | `products.json` | Array of all marketplace products, slimmed to 13 fields: `id, csp, cso, offering, status, impact, authType, authDate, reuse, assessor, models, deployment, agencies` (agency count) | marketplace `data.Products` |
 | `journeys.json` | One record per service journey reconstructed from the status-change log: `id, csp, cso, is20x, migration, days, start, end, current, events[]` (each event: `date, to, class`). `current` is the service's latest known status computed from its **full** event chain — including delistings — not just the most recent forward step. `days` is null when no trustworthy start/end pair exists (exclusions are counted, not hidden) | computed from changelog |
-| `stats.json` | Precomputed program stats: totals by status/impact, authorizations by year (all and 20x-only), count of 20x authorizations, top-reused services, most-active assessors, journey duration percentiles, `lastChange` timestamp | computed from `data.Products` + changelog |
+| `stats.json` | Precomputed program stats: totals by status/impact, authorizations by year (all and 20x-only), count of 20x authorizations, top-reused services, most-active assessors, journey duration statistics, `lastChange` timestamp. Journey `p50` is the conventional median; `p10` and `p90` use nearest rank. | computed from `data.Products` + changelog |
 | `agencies.json` | Array of federal agencies with their authorization + reuse footprint: `id, name, authorizations, reuse, auths[], reuses[]` (product ids) | marketplace agency data |
 | `activity.json` | The most recent program events (status changes and agency adoptions), newest first: `date, kind, to, class, cso, csp` | computed from changelog + marketplace |
 | `ksi.json` | The Key Security Indicator catalog: 10 families → indicators with official statements, mapped NIST SP 800-53 controls, and per-class variations where FedRAMP defines them | rules `KSI` section |
@@ -43,7 +43,7 @@ If you need guaranteed freshness or the full records, please go straight to the 
   `"Not Active"` are normalized to `null`; dates are truncated to `YYYY-MM-DD`.
 - **Provenance:** generation resolves mutable branch heads to immutable 40-character Git commits,
   downloads by commit, verifies that the bytes hash to the Git blob recorded for that file at that
-  commit, SHA-256 digests them before parsing, and records that evidence in `meta.json`. The CLI
+  commit, records a SHA-256 digest, and accepts no derived state until those checks pass. The CLI
   accepts a cached feed only when its body still matches both recorded identities.
 - **Freshness caveat:** GitHub pauses scheduled workflows after ~60 days of repository
   inactivity. If the newest data here looks stale, that's the likely cause — the tool's

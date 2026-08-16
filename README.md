@@ -19,8 +19,8 @@ engineer who had never touched FedRAMP before this project.
   profile with its **journey** (its actual dated path through the authorization process,
   reconstructed from FedRAMP's status-change log), who uses it, and its reuse footprint.
 - **How long?** — the question every newcomer asks, answered from the event log instead of
-  folklore: median **64 days** to certified on the explicit 20x cohort vs
-  **327** on legacy paths (as of Aug 2026; n and caveats stated in-app), with
+  folklore: median **67 days** to certified on the explicit 20x cohort vs
+  **327.5** on legacy paths (as of Aug 2026; n and caveats stated in-app), with
   distribution and a fastest-journeys leaderboard.
 - **Agencies** — who's adopting what across federal agencies.
 - **KSI Quest** — the 20x security catalog rendered from the official rules JSON, as a
@@ -70,8 +70,9 @@ activity, agencies, and the KSI rules catalog all recompute live in one atomic s
 The upstream feeds are treated as hostile input. Mutable branch names are resolved through the
 GitHub API, then data is fetched only by immutable commit; the exact revision, URL, byte count,
 Git blob match, and SHA-256 digest are exposed in the UI and recorded with snapshots. Downloads
-are byte-capped while streaming and digested before parsing. Every string is sanitized at the
-transforms boundary (type-checked, length-capped, control characters stripped, fields allowlisted) —
+are byte-capped while streaming and verified against the pinned Git blob before derived state is
+accepted. Every string is sanitized at the transforms boundary (type-checked, length-capped,
+control characters stripped, fields allowlisted) —
 the bundled snapshots at generation time, the live path in-browser, with both load paths
 shape-validated before the atomic state swap. Strings are escaped again at every render sink
 (URL sinks get a scheme allowlist instead), and the pages carry a Content-Security-Policy that

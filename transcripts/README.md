@@ -10,8 +10,12 @@ and corrected.
 |---|---|
 | `claude-code-session-main.jsonl` | The main build session, 09:45–13:23 (v1 → v2 pivot → v3 hardening → OnRamp rebrand). |
 | `claude-code-session-evening-hardening.jsonl` | A ~6-minute session around the evening commits (20:56–21:02). |
-| `claude-code-session-integrity.jsonl` | The post-submission integrity pass: a requested harsh-grade review of this submission, then the fixes it demanded (including the corrections to this very file). |
+| `claude-code-session-integrity.jsonl` | A submission review followed by the resulting fixes. |
 | `codex-hardening-session.md` | Author-written summary of the evening Codex hardening pass. **Not a transcript** — see below. |
+| `codex-combined-audit-session.md` | Summary of the final combined audit, repairs, and verification. **Not a transcript.** |
+
+The `.jsonl` files are raw Claude Code exports. The `codex-*.md` files are written summaries of
+Codex sessions; they are not raw Codex transcripts.
 
 ## What these logs are — and are not
 
@@ -19,8 +23,7 @@ Honest inventory, because the first version of this README overstated it:
 
 - `claude-code-session-main.jsonl` has 2,157 lines, but most are harness bookkeeping. The
   actual conversation is ~953 messages (615 assistant, 338 user-type records — of which 305
-  are tool results). **Genuine typed human prompts: about 15.** That ratio is the point of the
-  workflow (direction, not typing), but the count should be stated plainly.
+  are tool results). **Genuine typed human prompts: about 15.**
 - **Subagent transcripts are not captured.** The parallel review agents described in
   RATIONALE.md appear here only as task-notification stubs; their internal reasoning is not
   in these files.
@@ -40,20 +43,16 @@ Newline-delimited JSON — one record per line, each with a `type` (`user` / `as
 jq -r 'select(.type=="user" or .type=="assistant") | "\(.type): \(.message.content // .message | tostring | .[0:200])"' transcripts/claude-code-session-main.jsonl | less
 ```
 
-`node tools/time-report.mjs` computes the time accounting quoted in SUBMISSION.md from these
-files' timestamps.
+`node tools/time-report.mjs` estimates active time from the raw Claude Code exports' timestamp
+gaps. It does not measure the Codex sessions represented only by written summaries, so it is
+supporting evidence rather than a complete clock.
 
-## Moments worth jumping to (the judgment, not the typing)
+## Useful points in the history
 
-- **The v1 → v2 teardown** (main session): the owner reviewed a shipped, cited explainer and
-  killed it as a "wall of text," pivoting to a tool. (Corroborated in git: `b7cf0f7` → `e075f7d`.)
-- **The adversarial hardening pass** (main session): review agents turned loose on finished work
-  found live XSS, a dead deploy pipeline, and a percentile off-by-one that had made the headline
-  median wrong (361 → 327). All fixed before submission.
-- **The integrity pass** (integrity session): the owner asked for a harsh grade of the finished
-  submission and then directed fixes for what it found — including a stale time claim in three
-  documents, this README's inflated message count, and a journey-engine tie-break bug that
-  misreported the current status of eight real services.
+- **The v1 → v2 teardown** (main session): the cited explainer was judged too passive and rebuilt
+  around live data and a return-use workflow. (Git: `b7cf0f7` → `e075f7d`.)
+- **Review and hardening** (main and integrity sessions): findings led to security, deployment,
+  refresh, statistics, watchlist, and journey-ordering regressions.
 - **Owner guardrails set against the AI**: cited-or-cut, no claims about any company's
   compliance posture, humble tone, and the deliberate choice to paraphrase rather than
   republish the assignment text.

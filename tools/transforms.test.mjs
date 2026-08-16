@@ -311,6 +311,59 @@ test('journeys: same-date delisting sorts last — current is the delisting (inv
   assert.equal(journeys[0].current, 'No Status Found (Delisted)');
 });
 
+test('journeys: a later recording wins when effective dates tie (Wallarm regression)', () => {
+  const rows = [
+    row('P1', '2026-05-13T22:12:54.450Z', 'No Status Found', {
+      from_status: '', recorded_date: '2026-05-13T22:12:54.450Z', source: 'manual',
+    }),
+    row('P1', '2026-05-13T04:00:00.000Z', 'FRR', {
+      from_status: 'FRR', recorded_date: '2026-05-20T04:00:00.000Z', source: 'AppSheet',
+    }),
+  ];
+  for (const input of [rows, [...rows].reverse()]) {
+    const journey = J(input).journeys[0];
+    assert.equal(journey.current, 'FRR');
+    assert.deepEqual(journey.events.map((e) => e.to), ['No Status Found', 'FRR']);
+  }
+});
+
+test('journeys: malformed recording timestamps cannot outrank valid events', () => {
+  const { journeys, excluded } = J([
+    row('P1', '2026-01-01T00:00:00Z', 'Agency Review', {
+      recorded_date: '2026-01-01T00:00:00.000Z',
+    }),
+    row('P1', '2026-06-01T00:00:00Z', 'Authorized', {
+      recorded_date: '2026-06-02T00:00:00.000Z',
+    }),
+    row('P1', '2026-06-01T00:00:00Z', 'Agency Review', {
+      recorded_date: 'zzzz',
+    }),
+  ]);
+  assert.equal(journeys[0].current, 'Authorized');
+  assert.equal(journeys[0].days, 151);
+  assert.deepEqual(excluded, { delistedOnly: 0, noEnd: 0, noStart: 0, sameDay: 0 });
+});
+
+test('journeys: lifecycle order resolves simultaneous migration events (IntelliGRC regression)', () => {
+  const recorded = '2026-04-22T18:26:43.668Z';
+  const rows = [
+    row('P1', '2025-11-24T05:00:00.000Z', 'Final Program Review', {
+      from_status: 'Initial Program Review', recorded_date: recorded, source: 'migration', cert_type: '20x',
+    }),
+    row('P1', '2025-12-05T05:00:00.000Z', 'Authorized', {
+      from_status: 'Final Program Review', recorded_date: recorded, source: 'migration', cert_type: '20x',
+    }),
+    row('P1', '2025-11-24T05:00:00.000Z', 'Initial Program Review', {
+      from_status: '', recorded_date: recorded, source: 'migration', cert_type: '20x',
+    }),
+  ];
+  for (const input of [rows, [...rows].reverse()]) {
+    const journey = J(input).journeys[0];
+    assert.deepEqual(journey.events.map((e) => e.to), ['Initial Program Review', 'Final Program Review', 'Authorized']);
+    assert.equal(journey.days, 11);
+  }
+});
+
 test('journeys: no end / no start / same-day finish are excluded AND counted', () => {
   const { journeys, excluded } = J([
     row('inprog', '2026-01-01T00:00:00Z', 'Agency Review'), // never finishes
@@ -358,6 +411,27 @@ test('journeys: same-instant ties are deterministic under input reordering', () 
   assert.deepEqual(one.journeys[0].events.map((e) => e.to), ['Agency Review', 'PMO Review', 'Authorized']);
 });
 
+test('journeys: service identity uses the latest recording, independent of input order', () => {
+  const old = row('P1', '2026-01-10T00:00:00Z', 'Agency Review', {
+    csp: 'Old CSP', cso: 'Old name', recorded_date: '2026-01-10T00:00:00Z',
+  });
+  const renamed = row('P1', '2026-05-10T00:00:00Z', 'Authorized', {
+    csp: 'Current CSP', cso: 'Current name', recorded_date: '2026-05-12T00:00:00Z',
+  });
+  for (const input of [[old, renamed], [renamed, old]]) {
+    const journey = J(input).journeys[0];
+    assert.equal(journey.csp, 'Current CSP');
+    assert.equal(journey.cso, 'Current name');
+  }
+
+  const partialRename = { ...renamed, csp: null };
+  for (const input of [[old, partialRename], [partialRename, old]]) {
+    const journey = J(input).journeys[0];
+    assert.equal(journey.csp, 'Old CSP');
+    assert.equal(journey.cso, 'Current name');
+  }
+});
+
 // ---------- journeyStats ----------
 
 // journeys with prescribed durations, bypassing event assembly
@@ -370,15 +444,15 @@ const statsFor = (legacyDays, days20x = []) =>
     excluded: { delistedOnly: 0, noEnd: 0, noStart: 0, sameDay: 0 },
   });
 
-test('percentiles: nearest-rank exact values at n=1, 2, 10, 11', () => {
+test('statistics: nearest-rank tails and conventional median at n=1, 2, 10, 11', () => {
   const n1 = statsFor([70]);
   assert.deepEqual(n1.all, { n: 1, p10: 70, p50: 70, p90: 70 });
 
   const n2 = statsFor([100, 200]);
-  assert.deepEqual(n2.all, { n: 2, p10: 100, p50: 100, p90: 200 });
+  assert.deepEqual(n2.all, { n: 2, p10: 100, p50: 150, p90: 200 });
 
   const n10 = statsFor([10, 20, 30, 40, 50, 60, 70, 80, 90, 100]);
-  assert.deepEqual(n10.all, { n: 10, p10: 10, p50: 50, p90: 90 }); // ranks 1, 5, 9
+  assert.deepEqual(n10.all, { n: 10, p10: 10, p50: 55, p90: 90 });
 
   const n11 = statsFor([10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110]);
   assert.deepEqual(n11.all, { n: 11, p10: 20, p50: 60, p90: 100 }); // ranks 2, 6, 10
@@ -397,8 +471,8 @@ test('journeyStats: percentiles, histogram binning, path split (via real journey
   assert.equal(stats.measured, 11);
   assert.equal(stats.path20x.n, 1);
   assert.equal(stats.path20x.p50, 30);
-  // legacy cohort: [50,100,...,500] → nearest-rank p10/p50/p90 = ranks 1/5/9
-  assert.deepEqual(stats.legacy, { n: 10, p10: 50, p50: 250, p90: 450 });
+  // legacy cohort: tails use nearest rank; median averages the middle pair.
+  assert.deepEqual(stats.legacy, { n: 10, p10: 50, p50: 275, p90: 450 });
   assert.deepEqual(stats.all, { n: 11, p10: 50, p50: 250, p90: 450 });
   assert.equal(stats.histogram.reduce((a, b) => a + b.count, 0), 11);
   assert.equal(stats.histogram[0].count, 2); // 30 and 50 days land in the 0–89 bin

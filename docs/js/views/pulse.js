@@ -38,7 +38,7 @@ function renderProvenance() {
 
   const intro = document.createElement('p');
   intro.className = 'sub';
-  intro.textContent = `${state.live ? 'Live refresh' : 'Bundled snapshot'}: branch heads were resolved to immutable Git commits; each file matched the blob recorded at that commit and was SHA-256 digested before parsing.`;
+  intro.textContent = `${state.live ? 'Live refresh' : 'Bundled snapshot'}: branch heads were resolved to immutable Git commits; each file was byte-capped, matched against the blob recorded at that commit, and SHA-256 digested before its derived state was accepted.`;
   root.appendChild(intro);
   const dl = document.createElement('dl');
   dl.className = 'provenance-list';

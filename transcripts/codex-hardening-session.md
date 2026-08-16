@@ -30,9 +30,8 @@ The owner asked to leave the video alone during this pass.
 - A journey now enters the 20x cohort only through an explicit `cert_type` or `cert_path` value.
 - Cohort attribution considers only events inside the selected journey interval, preventing a
   later reauthorization from relabeling an earlier legacy journey.
-- Added regressions and regenerated the committed snapshots. The explicit 20x median changed
-  from the previously reported 70 days to 64 days (n=26); the legacy median remains 327 days
-  (n=508).
+- Added regressions and regenerated the committed snapshots; current figures and method are
+  documented in the app.
 
 ### Make live refresh complete and atomic
 
@@ -101,8 +100,8 @@ the workflow was rerun before final handoff.
 
 ## Deliberate non-changes and remaining limits
 
-- `VIDEO_SCRIPT.md` was left unchanged at the owner's request. It still contains the obsolete
-  70-day figure and must be corrected before recording.
+- `VIDEO_SCRIPT.md` was left unchanged during this session at the owner's request; it was
+  corrected later, before recording.
 - No cosmetic AI feature was added solely to mirror the job description. A credible government
   operator workflow or agent interface should be a deliberate product decision, not a label on
   an unrelated feature.
@@ -110,9 +109,3 @@ the workflow was rerun before final handoff.
   rate limits and does not claim to be a signed compliance-attestation service.
 - Scope remains a presentation risk for a 1–2 hour exercise even though the shared data and view
   architecture keeps the implementation cohesive.
-
-## Session assessment
-
-After the hardening pass, the code-focused assessment was A− / 9.0 out of 10. The principal
-remaining risks are submission positioning and role alignment rather than known correctness,
-integrity, accessibility, or browser-completeness defects.

@@ -61,6 +61,16 @@ const dateOrNull = (v) => {
   return s;
 };
 
+/** Strict sortable UTC timestamp for changelog recording order; invalid → empty. */
+const recordedTimeOrEmpty = (v) => {
+  if (typeof v !== 'string') return '';
+  const s = v.trim();
+  if (!/^\d{4}-\d{2}-\d{2}(?:T(?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d(?:\.\d{3})?Z)?$/.test(s)) return '';
+  const date = dateOrNull(s);
+  if (!date) return '';
+  return s.length === 10 ? `${date}T00:00:00.000Z` : new Date(s).toISOString();
+};
+
 /** The feed uses the literal string "Not Active" as its null sentinel. */
 const notSentinel = (s) => (s && s !== 'Not Active' ? s : null);
 
@@ -188,10 +198,9 @@ function cleanClassVariants(varies) {
  * (source:"migration", coarse dates), out-of-order rows, duplicate transitions,
  * journeys missing a start or an end, and a mixed vocabulary of 15 statuses.
  * Invariants enforced here:
- *   1. events are sorted by (transition_date, status rank, recorded_date,
- *      to_status, input order) — a total order, so ties are deterministic.
- *      Status rank orders same-date ties by process progression (in-process →
- *      end status → delisting), never by status text
+ *   1. events are sorted by transition date, then recorded timestamp. When
+ *      both are identical (common in migration batches), lifecycle rank and
+ *      the remaining sanitized fields provide a deterministic total order
  *   2. consecutive duplicates (same date + same to_status) collapse to one
  *   3. an "end" is the FIRST event matching END_STATUS; the "start" is the
  *      first event BEFORE it matching START_STATUS. Pre-process designations
@@ -217,11 +226,23 @@ export const isEndStatus = (s) => typeof s === 'string' && END_STATUS.test(s);
 export const START_STATUS = /(in process|review|initial implementation)/i;
 
 const DELISTED = /no status found/i;
+const EXPLICIT_DELISTED = /no status found.*delisted/i;
 
-// Same-date tie rank: in-process (0) < end status (1) < delisting (2). Without
-// this, alphabetical tie-breaking put "Authorized" before a same-day "PMO
-// Review", so `current` regressed to the earlier stage (invariants 1 & 6).
-const statusRank = (s) => (DELISTED.test(s) ? 2 : isEndStatus(s) ? 1 : 0);
+// Lifecycle rank for events whose effective and recorded timestamps are
+// identical. It covers the complete vocabulary observed in the live feed.
+const statusRank = (s) => {
+  if (EXPLICIT_DELISTED.test(s)) return 90;
+  if (/^no status found$/i.test(s)) return 0;
+  if (/^frr$/i.test(s)) return 10;
+  if (/^initial implementation$/i.test(s)) return 20;
+  if (/^(agency|jab) review$/i.test(s)) return 30;
+  if (/in process$/i.test(s)) return 40;
+  if (/^pmo review$/i.test(s)) return 50;
+  if (/^initial program review$/i.test(s)) return 60;
+  if (/^final program review$/i.test(s)) return 70;
+  if (isEndStatus(s)) return 80;
+  return 45;
+};
 
 // `Program` alone is NOT a 20x marker: the changelog also uses that path for
 // pre-20x Rev5 journeys. Require the feed's explicit 20x type/path value.
@@ -240,20 +261,18 @@ export function buildJourneys(changelog) {
     const date = dateOrNull(r.transition_date);
     const to = cleanStr(r.to_status);
     if (!id || !date || !to) continue;
-    if (!byProduct.has(id)) byProduct.set(id, { csp: null, cso: null, evs: [] });
+    if (!byProduct.has(id)) byProduct.set(id, { evs: [] });
     const g = byProduct.get(id);
-    if (!g.cso && (r.cso || r.csp)) {
-      g.cso = cleanStr(r.cso);
-      g.csp = cleanStr(r.csp);
-    }
     g.evs.push({
       date,
       to,
+      csp: cleanStr(r.csp),
+      cso: cleanStr(r.cso),
       class: cleanStr(r.cert_class, 64),
       path: cleanStr(r.cert_path, 64),
       type: cleanStr(r.cert_type, 64),
       source: cleanStr(r.source, 64),
-      recorded: cleanStr(r.recorded_date, 64) ?? '',
+      recorded: recordedTimeOrEmpty(r.recorded_date),
       idx: idx++,
     });
   }
@@ -263,21 +282,57 @@ export function buildJourneys(changelog) {
 
   for (const [id, group] of byProduct) {
     const evs = group.evs;
-    // total order: same-date ties resolved by process progression, then
-    // recorded date, then status text, then input position — reruns and
-    // reordered inputs agree, and a same-day end status sorts after the
-    // in-process event that preceded it
+    // Later recordings override earlier ones on the same effective day. True
+    // same-instant ties use lifecycle order.
     evs.sort(
       (a, b) =>
         cmpStr(a.date, b.date) ||
-        statusRank(a.to) - statusRank(b.to) ||
         cmpStr(a.recorded, b.recorded) ||
+        statusRank(a.to) - statusRank(b.to) ||
         cmpStr(a.to, b.to) ||
+        cmpStr(a.cso ?? '', b.cso ?? '') ||
+        cmpStr(a.csp ?? '', b.csp ?? '') ||
+        cmpStr(a.type ?? '', b.type ?? '') ||
+        cmpStr(a.path ?? '', b.path ?? '') ||
+        cmpStr(a.class ?? '', b.class ?? '') ||
+        cmpStr(a.source ?? '', b.source ?? '') ||
         a.idx - b.idx
     );
-    const deduped = evs.filter((e, i) => i === 0 || !(e.date === evs[i - 1].date && e.to === evs[i - 1].to));
+    // Names can change over a product's history. Select the most recently
+    // recorded non-empty identity, with deterministic fallbacks for migration
+    // rows recorded in the same batch.
+    const identities = evs
+      .filter((e) => e.cso || e.csp)
+      .sort(
+        (a, b) =>
+          cmpStr(a.recorded, b.recorded) ||
+          cmpStr(a.date, b.date) ||
+          cmpStr(a.cso ?? '', b.cso ?? '') ||
+          cmpStr(a.csp ?? '', b.csp ?? '')
+      );
+    const latestIdentityValue = (key) => {
+      for (let i = identities.length - 1; i >= 0; i--) {
+        if (identities[i][key]) return identities[i][key];
+      }
+      return null;
+    };
+    const deduped = [];
+    for (const e of evs) {
+      const prev = deduped[deduped.length - 1];
+      if (!prev || prev.date !== e.date || prev.to !== e.to) {
+        deduped.push({ ...e });
+        continue;
+      }
+      // Duplicate rows occasionally disagree on optional metadata. Preserve
+      // any explicit 20x marker and migration evidence instead of making the
+      // result depend on feed order.
+      if (e.type === '20x') prev.type = '20x';
+      if (e.path === '20x') prev.path = '20x';
+      if (!prev.class) prev.class = e.class;
+      if (e.source === 'migration') prev.source = 'migration';
+    }
 
-    const migration = deduped.some((e) => e.source === 'migration');
+    const migration = evs.some((e) => e.source === 'migration');
     const live = deduped.filter((e) => !DELISTED.test(e.to));
     if (!live.length) {
       excluded.delistedOnly++;
@@ -306,8 +361,8 @@ export function buildJourneys(changelog) {
 
     journeys.push({
       id,
-      csp: group.csp,
-      cso: group.cso,
+      csp: latestIdentityValue('csp'),
+      cso: latestIdentityValue('cso'),
       is20x: on20xPath,
       migration,
       days,
@@ -326,11 +381,17 @@ export function buildJourneys(changelog) {
 /** Nearest-rank percentile over an ascending-sorted array. */
 const percentile = (sorted, p) => sorted[Math.max(0, Math.ceil((p / 100) * sorted.length) - 1)];
 
+/** Conventional sample median: midpoint of the middle pair for even n. */
+const median = (sorted) => {
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+};
+
 /** p10/p50/p90 for one cohort of journeys. */
 const durationSplit = (list) => {
   const days = list.map((j) => j.days).sort((a, b) => a - b);
   if (!days.length) return { n: 0, p10: null, p50: null, p90: null };
-  return { n: days.length, p10: percentile(days, 10), p50: percentile(days, 50), p90: percentile(days, 90) };
+  return { n: days.length, p10: percentile(days, 10), p50: median(days), p90: percentile(days, 90) };
 };
 
 const BIN = 90;

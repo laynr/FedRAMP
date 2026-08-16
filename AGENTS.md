@@ -5,23 +5,12 @@ story (see `RATIONALE.md`). This file captures the practices that worked, so a f
 human or agent — can repeat them. It complements `CLAUDE.md` (which holds the project's facts and
 rules); this file is about process.
 
-## The adversarial review loop (the highest-value practice here)
+## The adversarial review loop
 
-Before shipping any version, turn **read-only review agents** loose on the finished work, each
-with a narrow, skeptical mandate — then integrate the findings yourself. Fresh agents with a
-single lens catch what the builder is blind to. In this repo the loop found, among other things:
-
-- **Two live XSS paths** from the third-party data feed into the DOM (chart tooltips, KSI list).
-- **A wrong headline number** — a `floor()`-vs-nearest-rank percentile bug that inflated the
-  legacy median (361 → 327), repeated across three docs.
-- **A dead deploy pipeline** — the weekly data refresh committed but never redeployed Pages
-  (`GITHUB_TOKEN` pushes don't trigger Pages), plus an eternal no-op commit.
-- **~60% of the explainer's cited content silently dropped** in a redesign.
-
-Lenses that earned their keep: merciless code-quality reviewer; security/repo-hygiene auditor;
-content/UX completeness reviewer; screen-reader accessibility pass; government-data-use policy
-check; and a rubric grader playing skeptical reviewer. Give each agent the specific findings
-format you want back and tell it to cite files/lines.
+Before shipping, run read-only reviews with narrow mandates, then integrate findings in one
+place. Useful lenses are correctness, security, content/UX, accessibility, government-data
+policy, and rubric fit. Require file-and-line evidence; accepted correctness findings should
+ship with focused regressions.
 
 ## Fan-out rules that avoided collisions
 

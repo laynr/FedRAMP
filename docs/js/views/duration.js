@@ -46,6 +46,8 @@ export function renderDuration() {
     the rest are excluded and counted: ${fmtOrDash(js.excluded?.noEnd)} not yet finished, ${fmtOrDash(js.excluded?.noStart)}
     with no recorded start (mostly pre-2024 records migrated into the log), ${fmtOrDash(js.excluded?.sameDay)}
     starting and finishing on the same day (duration unmeasurable at day granularity).</p>
+    <p>The median is the middle journey, or the midpoint of the two middle journeys when a cohort
+    has an even count. The p10 and p90 bounds use nearest rank.</p>
     <p>Honesty caveats: migration-era records carry coarser dates, so old-journey durations are approximate;
     the log is not a complete history of every service ever authorized; and the 20x-path sample
     (n = ${fmtOrDash(js.path20x?.n)}) is still small and early — the comparison is directional, not a controlled study.
