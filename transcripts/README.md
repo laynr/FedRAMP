@@ -21,7 +21,7 @@ Codex sessions; they are not raw Codex transcripts.
 
 Honest inventory, because the first version of this README overstated it:
 
-- `claude-code-session-main.jsonl` has 2,157 lines, but most are harness bookkeeping. The
+- `claude-code-session-main.jsonl` has 2,156 lines, but most are harness bookkeeping. The
   actual conversation is ~953 messages (615 assistant, 338 user-type records — of which 305
   are tool results). **Genuine typed human prompts: about 15.**
 - **Subagent transcripts are not captured.** The parallel review agents described in
