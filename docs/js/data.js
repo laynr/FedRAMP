@@ -107,11 +107,33 @@ async function getFeed(name, source) {
 
 // ---------- loading ----------
 
+/**
+ * Shape gate shared by BOTH load paths. The bundled snapshot was sanitized at
+ * generation by the same transforms the live path runs, but the browser still
+ * refuses to swap in a payload (snapshot or live) that fails these checks.
+ */
+function assertShapes(next, label) {
+  if (!Array.isArray(next.products) || next.products.length === 0) {
+    throw new Error(`${label} produced no products — keeping current data`);
+  }
+  if (!next.stats?.totals) {
+    throw new Error(`${label} produced no stats totals — keeping current data`);
+  }
+  if (!Array.isArray(next.journeys)) {
+    throw new Error(`${label} produced no journeys — keeping current data`);
+  }
+  if (!Array.isArray(next.ksi?.families) || next.ksi.families.length === 0) {
+    throw new Error(`${label} produced no KSI families — keeping current data`);
+  }
+}
+
 export async function loadSnapshot() {
   const [products, stats, ksi, journeys, agencies, activity, meta] = await Promise.all(
     ['products', 'stats', 'ksi', 'journeys', 'agencies', 'activity', 'meta'].map((n) => getJSON(`data/${n}.json`))
   );
-  Object.assign(state, { products, stats, ksi, journeys, agencies, activity, meta, live: false });
+  const next = { products, stats, ksi, journeys, agencies, activity, meta, live: false };
+  assertShapes(next, 'bundled snapshot');
+  Object.assign(state, next);
   index();
   emitChange();
   return state;
@@ -152,18 +174,7 @@ export async function refreshLive() {
     },
     live: true,
   };
-  if (!Array.isArray(next.products) || next.products.length === 0) {
-    throw new Error('live refresh produced no products — keeping current data');
-  }
-  if (!next.stats?.totals) {
-    throw new Error('live refresh produced no stats totals — keeping current data');
-  }
-  if (!Array.isArray(next.journeys)) {
-    throw new Error('live refresh produced no journeys — keeping current data');
-  }
-  if (!Array.isArray(next.ksi?.families) || next.ksi.families.length === 0) {
-    throw new Error('live refresh produced no KSI families — keeping current data');
-  }
+  assertShapes(next, 'live refresh');
   Object.assign(state, next);
   index();
   emitChange();

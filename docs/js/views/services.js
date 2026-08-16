@@ -13,7 +13,7 @@
 import { state, relativeDate } from '../data.js';
 import { openDrawer, esc, fmt } from '../ui.js';
 import {
-  loadWatchlist, saveWatchlist, toggleStar, refreshFingerprints,
+  loadWatchlist, saveWatchlist, toggleStar, refreshFingerprints, fingerprint,
   markVisited as advanceVisit, SAFE_ID,
 } from '../watchlist.js';
 
@@ -34,7 +34,17 @@ export function isStarred(id) {
 }
 
 export function star(id) {
-  watch = refreshFingerprints(toggleStar(watch, id), state.productsById, state.journeysById);
+  // Fingerprint ONLY the newly-starred service. Refreshing every starred
+  // fingerprint here would commit them mid-session and silently erase the
+  // "since you were last here" diffs the user may be reading on Pulse.
+  const adding = !watch.starred.includes(id);
+  watch = toggleStar(watch, id);
+  const fingerprints = Object.create(null);
+  for (const sid of watch.starred) {
+    if (watch.fingerprints && sid in watch.fingerprints) fingerprints[sid] = watch.fingerprints[sid];
+  }
+  if (adding) fingerprints[id] = fingerprint(state.productsById.get(id), state.journeysById.get(id));
+  watch = { ...watch, fingerprints };
   saveWatchlist(watch);
   for (const fn of listeners) fn(watch);
   // repaint any star buttons for this id
@@ -214,7 +224,7 @@ export function openServiceDrawer(id) {
       <span class="pill ${p.impact?.startsWith('20x') ? 'pill-20x' : ''}">${esc(p.impact ?? '—')}</span>
       <span class="pill">${esc(p.status ?? '—')}</span>
       ${p.authType ? `<span class="pill">${esc(p.authType)} path</span>` : ''}
-      ${p.authDate ? `<span class="pill">authorized ${esc(p.authDate)} (${relativeDate(p.authDate)})</span>` : ''}
+      ${p.authDate ? `<span class="pill">authorized ${esc(p.authDate)} (${esc(relativeDate(p.authDate))})</span>` : ''}
     </div>
     <h3>The journey</h3>
     ${timeline}

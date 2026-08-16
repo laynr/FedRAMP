@@ -223,7 +223,7 @@ test('journeys: happy path measures start→end and keeps event chain', () => {
   assert.equal(j.migration, false);
   assert.equal(j.current, 'FedRAMP Certified');
   assert.equal(j.events.length, 3);
-  assert.deepEqual(excluded, { delistedOnly: 0, noEnd: 0, noStart: 0, invalidOrder: 0 });
+  assert.deepEqual(excluded, { delistedOnly: 0, noEnd: 0, noStart: 0, sameDay: 0 });
 });
 
 test('journeys: Program/Rev5 is legacy; only explicit 20x markers set the cohort', () => {
@@ -274,7 +274,7 @@ test('journeys: FRR is real history but does not start the clock', () => {
   assert.equal(j.days, 28);
   assert.equal(j.events.length, 3); // FRR stays in the chain
   assert.equal(j.events[0].to, 'FRR');
-  assert.deepEqual(excluded, { delistedOnly: 0, noEnd: 0, noStart: 0, invalidOrder: 0 });
+  assert.deepEqual(excluded, { delistedOnly: 0, noEnd: 0, noStart: 0, sameDay: 0 });
 });
 
 test('journeys: FRR-only prehistory before an end counts as noStart', () => {
@@ -287,7 +287,31 @@ test('journeys: FRR-only prehistory before an end counts as noStart', () => {
   assert.equal(journeys[0].events.length, 2);
 });
 
-test('journeys: no end / no start / invalid order are excluded AND counted', () => {
+test('journeys: same-date ties order by process progression, not status text', () => {
+  // Real-world case (Adobe, GitHub, …): a same-day "PMO Review" row sorted
+  // alphabetically AFTER "Authorized", so `current` regressed to PMO Review
+  // while the marketplace said FedRAMP Authorized. Rank must win over text,
+  // in either input order.
+  const pair = [
+    row('P1', '2018-05-14T00:00:00Z', 'PMO Review', { recorded_date: '2018-05-14' }),
+    row('P1', '2018-05-14T00:00:00Z', 'Authorized', { recorded_date: '2018-05-14' }),
+  ];
+  for (const rows of [pair, [...pair].reverse()]) {
+    const { journeys } = J([row('P1', '2018-04-23T00:00:00Z', 'Agency Review'), ...rows]);
+    assert.equal(journeys[0].current, 'Authorized');
+  }
+});
+
+test('journeys: same-date delisting sorts last — current is the delisting (invariant 6)', () => {
+  const { journeys } = J([
+    row('P1', '2026-01-01T00:00:00Z', 'Agency Review'),
+    row('P1', '2026-06-01T00:00:00Z', 'No Status Found (Delisted)'),
+    row('P1', '2026-06-01T00:00:00Z', 'Authorized'),
+  ]);
+  assert.equal(journeys[0].current, 'No Status Found (Delisted)');
+});
+
+test('journeys: no end / no start / same-day finish are excluded AND counted', () => {
   const { journeys, excluded } = J([
     row('inprog', '2026-01-01T00:00:00Z', 'Agency Review'), // never finishes
     row('backfill', '2020-05-01T00:00:00Z', 'Authorized', { source: 'migration' }), // starts authorized
@@ -296,7 +320,7 @@ test('journeys: no end / no start / invalid order are excluded AND counted', () 
   ]);
   assert.equal(excluded.noEnd, 1);
   assert.equal(excluded.noStart, 1);
-  assert.equal(excluded.invalidOrder, 1);
+  assert.equal(excluded.sameDay, 1);
   assert.ok(journeys.every((j) => j.days === null));
   assert.equal(journeys.find((j) => j.id === 'backfill').migration, true);
 });
@@ -343,7 +367,7 @@ const statsFor = (legacyDays, days20x = []) =>
       ...legacyDays.map((d, i) => ({ id: `L${i}`, cso: null, csp: null, is20x: false, migration: false, days: d, end: '2024-06-01' })),
       ...days20x.map((d, i) => ({ id: `X${i}`, cso: null, csp: null, is20x: true, migration: false, days: d, end: '2026-06-01' })),
     ],
-    excluded: { delistedOnly: 0, noEnd: 0, noStart: 0, invalidOrder: 0 },
+    excluded: { delistedOnly: 0, noEnd: 0, noStart: 0, sameDay: 0 },
   });
 
 test('percentiles: nearest-rank exact values at n=1, 2, 10, 11', () => {
@@ -461,6 +485,28 @@ test('watchlist: fingerprint + diff catches status and journey changes only', ()
   // a saved service missing from the current feed is surfaced, never dropped
   const gone = diff.find((d) => d.id === 'GONE');
   assert.deepEqual(gone.changes, [{ field: 'listed', from: 'listed', to: 'no longer in the feed' }]);
+});
+
+test('watchlist: null → value transitions are reported, not swallowed', () => {
+  // A service starred while it had no recorded status, now Authorized — the
+  // single most interesting transition the watchlist exists to catch.
+  const saved = { A: { status: null, impact: null, latest: null, latestDate: null } };
+  const current = { A: { status: 'FedRAMP Authorized', impact: '20x Low', latest: 'Authorized', latestDate: '2026-08-01' } };
+  const diff = diffFingerprints(saved, current);
+  assert.equal(diff.length, 1);
+  assert.deepEqual(diff[0].changes.map((c) => c.field).sort(), ['impact', 'latest', 'status']);
+  assert.ok(diff[0].changes.every((c) => c.from === null));
+});
+
+test('watchlist: a re-dated event with the same status text still counts as movement', () => {
+  const saved = { A: { status: 'FedRAMP In Process', impact: 'Low', latest: 'PMO Review', latestDate: '2026-05-01' } };
+  const current = { A: { status: 'FedRAMP In Process', impact: 'Low', latest: 'PMO Review', latestDate: '2026-08-01' } };
+  const diff = diffFingerprints(saved, current);
+  assert.deepEqual(diff[0].changes, [{ field: 'latestDate', from: '2026-05-01', to: '2026-08-01' }]);
+  // …but latestDate stays quiet when `latest` already reported the change
+  const current2 = { A: { status: 'FedRAMP In Process', impact: 'Low', latest: 'Authorized', latestDate: '2026-08-01' } };
+  const diff2 = diffFingerprints(saved, current2);
+  assert.deepEqual(diff2[0].changes.map((c) => c.field), ['latest']);
 });
 
 test('watchlist: a saved fingerprint with no real data does not spam "no longer listed"', () => {

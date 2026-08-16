@@ -44,8 +44,8 @@ export function renderDuration() {
     Review, Initial Implementation) and its <em>first certified/authorized event</em>, in FedRAMP's published
     status-change log. ${fmtOrDash(js.measured)} of ${fmtOrDash(js.totalWithEvents)} services with events are measurable;
     the rest are excluded and counted: ${fmtOrDash(js.excluded?.noEnd)} not yet finished, ${fmtOrDash(js.excluded?.noStart)}
-    with no recorded start (mostly pre-2024 records migrated into the log), ${fmtOrDash(js.excluded?.invalidOrder)}
-    with unusable ordering.</p>
+    with no recorded start (mostly pre-2024 records migrated into the log), ${fmtOrDash(js.excluded?.sameDay)}
+    starting and finishing on the same day (duration unmeasurable at day granularity).</p>
     <p>Honesty caveats: migration-era records carry coarser dates, so old-journey durations are approximate;
     the log is not a complete history of every service ever authorized; and the 20x-path sample
     (n = ${fmtOrDash(js.path20x?.n)}) is still small and early — the comparison is directional, not a controlled study.
@@ -87,13 +87,13 @@ function renderFastest(fastestList) {
     { format: (v) => `${fmt(v)} days`, caption: 'Fastest journeys finished since 2025' }
   );
 
-  [...container.querySelectorAll('.barlist-row')].forEach((row, i) => {
-    const f = fastestList[i];
-    if (!f?.id) return;
-    row.dataset.id = f.id;
+  const byId = new Map(fastestList.map((f) => [f.id, f]));
+  for (const row of container.querySelectorAll('.barlist-row[data-id]')) {
+    const f = byId.get(row.dataset.id);
+    if (!f) continue;
     row.classList.add('clickable');
     row.tabIndex = 0;
     row.setAttribute('role', 'button');
     row.setAttribute('aria-label', `${f.cso ?? f.id}: ${fmtOrDash(f.days)} days — open service profile`);
-  });
+  }
 }

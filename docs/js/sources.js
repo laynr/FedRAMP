@@ -117,7 +117,9 @@ export function wireCitations(root = document) {
   const order = [];
   for (const a of root.querySelectorAll('a[data-cite]')) {
     const id = a.dataset.cite;
-    const src = SOURCES[id];
+    // Own-key lookup only: data-cite comes from the DOM, and a plain-object
+    // read of "constructor" would yield a truthy non-source.
+    const src = Object.hasOwn(SOURCES, id) ? SOURCES[id] : null;
     if (!src) {
       console.error(`unknown citation id: ${id}`);
       continue;

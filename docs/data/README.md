@@ -34,7 +34,10 @@ If you need guaranteed freshness or the full records, please go straight to the 
 ## Contract notes
 
 - **Stability:** field names are stable within schema v2. A breaking change bumps the path
-  rather than silently changing shapes.
+  rather than silently changing shapes. One correction shipped 2026-08-15: the journey-stats
+  exclusion counter `excluded.invalidOrder` was renamed `excluded.sameDay` — after sorting, the
+  only condition it can catch is a journey starting and finishing on the same day, and the old
+  name misdescribed the data.
 - **Sanitization:** all string values are sanitized at generation — type-checked,
   length-capped, control characters stripped, fields allowlisted. Sentinel values like
   `"Not Active"` are normalized to `null`; dates are truncated to `YYYY-MM-DD`.

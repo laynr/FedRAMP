@@ -188,8 +188,10 @@ function cleanClassVariants(varies) {
  * (source:"migration", coarse dates), out-of-order rows, duplicate transitions,
  * journeys missing a start or an end, and a mixed vocabulary of 15 statuses.
  * Invariants enforced here:
- *   1. events are sorted by (transition_date, recorded_date, to_status, input
- *      order) — a total order, so ties are deterministic
+ *   1. events are sorted by (transition_date, status rank, recorded_date,
+ *      to_status, input order) — a total order, so ties are deterministic.
+ *      Status rank orders same-date ties by process progression (in-process →
+ *      end status → delisting), never by status text
  *   2. consecutive duplicates (same date + same to_status) collapse to one
  *   3. an "end" is the FIRST event matching END_STATUS; the "start" is the
  *      first event BEFORE it matching START_STATUS. Pre-process designations
@@ -215,6 +217,11 @@ export const isEndStatus = (s) => typeof s === 'string' && END_STATUS.test(s);
 export const START_STATUS = /(in process|review|initial implementation)/i;
 
 const DELISTED = /no status found/i;
+
+// Same-date tie rank: in-process (0) < end status (1) < delisting (2). Without
+// this, alphabetical tie-breaking put "Authorized" before a same-day "PMO
+// Review", so `current` regressed to the earlier stage (invariants 1 & 6).
+const statusRank = (s) => (DELISTED.test(s) ? 2 : isEndStatus(s) ? 1 : 0);
 
 // `Program` alone is NOT a 20x marker: the changelog also uses that path for
 // pre-20x Rev5 journeys. Require the feed's explicit 20x type/path value.
@@ -252,13 +259,22 @@ export function buildJourneys(changelog) {
   }
 
   const journeys = [];
-  const excluded = { delistedOnly: 0, noEnd: 0, noStart: 0, invalidOrder: 0 };
+  const excluded = { delistedOnly: 0, noEnd: 0, noStart: 0, sameDay: 0 };
 
   for (const [id, group] of byProduct) {
     const evs = group.evs;
-    // total order: same-instant ties resolved by recorded date, then status
-    // text, then input position — reruns and reordered inputs agree
-    evs.sort((a, b) => cmpStr(a.date, b.date) || cmpStr(a.recorded, b.recorded) || cmpStr(a.to, b.to) || a.idx - b.idx);
+    // total order: same-date ties resolved by process progression, then
+    // recorded date, then status text, then input position — reruns and
+    // reordered inputs agree, and a same-day end status sorts after the
+    // in-process event that preceded it
+    evs.sort(
+      (a, b) =>
+        cmpStr(a.date, b.date) ||
+        statusRank(a.to) - statusRank(b.to) ||
+        cmpStr(a.recorded, b.recorded) ||
+        cmpStr(a.to, b.to) ||
+        a.idx - b.idx
+    );
     const deduped = evs.filter((e, i) => i === 0 || !(e.date === evs[i - 1].date && e.to === evs[i - 1].to));
 
     const migration = deduped.some((e) => e.source === 'migration');
@@ -276,7 +292,9 @@ export function buildJourneys(changelog) {
     let days = null;
     if (!end) excluded.noEnd++;
     else if (!start) excluded.noStart++; // e.g. backfill starting at "Authorized", or FRR-only prehistory
-    else if (end.date <= start.date) excluded.invalidOrder++;
+    // sorting guarantees start.date <= end.date, so this only catches
+    // journeys starting and finishing on the same day — duration unmeasurable
+    else if (end.date <= start.date) excluded.sameDay++;
     else days = Math.round((new Date(end.date) - new Date(start.date)) / 86_400_000);
 
     // A later re-authorization must not relabel an earlier legacy completion.
@@ -284,13 +302,13 @@ export function buildJourneys(changelog) {
     // Incomplete journeys use their live history for current-path UI, but never
     // enter duration statistics.
     const cohortEvents = start && end ? live.slice(startIdx, endIdx + 1) : live;
-    const is20x = cohortEvents.some(isPath20x);
+    const on20xPath = cohortEvents.some(isPath20x);
 
     journeys.push({
       id,
       csp: group.csp,
       cso: group.cso,
-      is20x,
+      is20x: on20xPath,
       migration,
       days,
       start: days != null ? start.date : null,

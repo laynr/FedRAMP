@@ -50,7 +50,15 @@ corrected number with the story of catching it than the wrong number with confid
 adversarial pass also caught a Rev5 record mislabeled as 20x by an overly broad `Program`
 heuristic, incomplete KSI refresh, and mutable feed URLs; those now have regressions, an atomic
 three-feed refresh, commit-anchored Git blob checks, pre-parse SHA-256 evidence, and browser/a11y CI.
-That verification culture is the actual deliverable.
+
+A third, post-submission integrity pass — a requested harsh grade of the finished package —
+caught more: a same-date tie-break bug that made the journey engine misreport the current
+status of eight real services (violating its own documented invariant), watchlist diffs that
+missed the null→Authorized transitions the feature exists for, an exclusion counter that could
+never fire being quoted as a statistic in the UI, and a stale time claim in three documents
+(see "Time spent"). All fixed with regression tests; the grade-then-fix session ships in
+`transcripts/`. That verification culture — applied to my own claims, not just the code — is
+the actual deliverable.
 
 ## The non-obvious part
 
@@ -90,18 +98,27 @@ can query FedRAMP state; agency-level adoption trends over time.
 
 ## Time spent
 
-**Wall-clock: ~2.6 hours** — the git history is the honest record: first commit 10:31, last
-13:12 on 2026-08-15 (`git log --format='%ci'`), spanning a shipped v1, a v2 teardown-and-pivot,
-a v3 hardening pass, and the OnRamp rebrand.
+Computed, not asserted: `node tools/time-report.mjs` classifies every timestamp gap in the
+session transcripts (`transcripts/*.jsonl`, 5-minute idle threshold, method in the script
+header) into **agent processing**, **typed human input**, and **dead time** — away from the
+keyboard: meals, evenings, life — which is subtracted. The current totals are quoted in
+SUBMISSION.md and reproducible from the shipped transcripts.
 
-That number deserves an asterisk in both directions. It understates *elapsed* time: much of the
-work ran as background AI agents (research, review, per-file implementation) while I was away
-from the keyboard, so calendar time was longer than 2.6 hours. But it also overstates *my* hands-
-on effort in the usual sense — my actual work was direction and judgment, not typing: choosing
-the concept, killing v1 on taste, setting the accuracy and humility rules, running an adversarial
-review pass on my own finished work, and deciding what to keep. I leaned into orchestration
-precisely because the brief rewards leverage; the interesting measure isn't hours logged, it's
-the judgment applied per hour. I'd rather show the real commit timestamps than pad a number.
+Boundaries of the measurement, stated rather than smoothed over:
+
+- The evening Codex hardening session is **not transcript-captured** (its raw log was not
+  retained), so no active-time number is claimed for it. It is bounded only by its commits
+  (20:50–21:02) and summarized in `transcripts/codex-hardening-session.md`.
+- The calendar span — first commit 10:31 to the final push, 2026-08-15 — is a full day with
+  hours away between work blocks, not a continuous sitting.
+- Against the assignment's 8-hour cap: the measured active total is in SUBMISSION.md; the
+  uncaptured Codex session sits on top of it, unquantified.
+
+An earlier version of this document claimed "~2.6 hours wall-clock (10:31–13:12)." That was
+true when written and false after the evening commits — and it survived two later editing
+passes in a project whose thesis is verification over confidence. The time figure is now
+produced the way the site's other numbers are: computed from data, with method and
+exclusions stated.
 
 ## AI usage
 

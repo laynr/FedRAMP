@@ -46,7 +46,9 @@ function renderProvenance() {
     const dt = document.createElement('dt');
     dt.textContent = label;
     const dd = document.createElement('dd');
-    if (source.url && source.commit) {
+    // Scheme allowlist: this is the one data-driven href on the page, and
+    // escaping is the wrong tool for URL sinks — only https:// may land here.
+    if (source.url && source.commit && /^https:\/\//.test(source.url)) {
       const a = document.createElement('a');
       a.href = source.url;
       a.target = '_blank';
@@ -68,13 +70,22 @@ function renderProvenance() {
 // ---------- "since you were last here" ----------
 
 // savedAt captured at first render so the "(3d ago)" label stays stable for
-// the whole session, even after fingerprints commit / savedAt advances (M8).
+// the whole session, even after fingerprints commit / savedAt advances.
 let sessionSince;
 let visitedMarked = false;
+// Diffs accumulate here for the whole session: fingerprints commit right
+// after the first render, so re-renders (starring something, live refresh)
+// must NOT lose the changes the user is reading — they merge instead.
+const sessionDiffs = new Map(); // id -> changes[]
 
 function renderWatchCard() {
   const el = document.getElementById('watch-card');
   const watch = getWatchlist();
+
+  if (!visitedMarked) {
+    visitedMarked = true;
+    markVisited(); // savedAt advances exactly once per page load, watchlist empty or not
+  }
 
   if (!watch.starred.length) {
     el.innerHTML = `<div class="panel watch empty">
@@ -87,7 +98,7 @@ function renderWatchCard() {
   }
 
   if (sessionSince === undefined) sessionSince = watch.savedAt;
-  const since = sessionSince ? relativeDate(String(sessionSince).slice(0, 10)) : null;
+  const since = sessionSince ? esc(relativeDate(String(sessionSince).slice(0, 10))) : null;
 
   // Null-prototype map: starred ids come from storage/feed — "__proto__" must stay inert.
   const current = Object.create(null);
@@ -100,7 +111,14 @@ function renderWatchCard() {
   const watching = watch.starred.length - missing;
   const missingNote = missing ? ` <span class="sub">+${missing} no longer listed</span>` : '';
 
-  const diffs = diffFingerprints(watch.fingerprints, current);
+  // Merge fresh diffs into the session cache, then render the cache — never
+  // just the fresh set, which is empty right after fingerprints commit.
+  const fresh = diffFingerprints(watch.fingerprints, current);
+  for (const d of fresh) sessionDiffs.set(d.id, d.changes);
+  for (const id of [...sessionDiffs.keys()]) {
+    if (!watch.starred.includes(id)) sessionDiffs.delete(id); // unstarred mid-session
+  }
+  const diffs = [...sessionDiffs].map(([id, changes]) => ({ id, changes }));
 
   if (!diffs.length) {
     el.innerHTML = `<div class="panel watch">
@@ -112,10 +130,11 @@ function renderWatchCard() {
       <strong>Since you were last here${since ? ` (${since})` : ''}:</strong>${missingNote}
       ${diffs.map((d) => {
         const p = state.productsById.get(d.id);
+        const label = { latest: 'status event', latestDate: 'new event dated' };
         const parts = d.changes.map((c) =>
           c.field === 'listed'
             ? '<strong>no longer in the marketplace feed</strong>'
-            : `${c.field === 'latest' ? 'status event' : c.field}: ${esc(c.from)} <span aria-hidden="true">→</span><span class="visually-hidden">changed to</span> <strong>${esc(c.to)}</strong>`
+            : `${label[c.field] ?? c.field}: ${esc(c.from ?? '—')} <span aria-hidden="true">→</span><span class="visually-hidden">changed to</span> <strong>${esc(c.to)}</strong>`
         ).join(' · ');
         const name = `<span class="watch-name">${esc(p?.cso ?? d.id)}</span>`;
         // Only resolvable services get a button (there is a profile to open).
@@ -129,12 +148,8 @@ function renderWatchCard() {
     );
   }
   // Diff against STORED fingerprints, render, THEN commit — and only when
-  // something actually changed (avoids a redundant write on every repaint).
-  if (diffs.length) commitFingerprints();
-  if (!visitedMarked) {
-    visitedMarked = true;
-    markVisited(); // savedAt advances exactly once per page load
-  }
+  // something fresh changed (avoids a redundant write on every repaint).
+  if (fresh.length) commitFingerprints();
 }
 
 // ---------- tiles ----------
@@ -174,11 +189,11 @@ function renderStream() {
   const feed = document.getElementById('activity-stream');
   feed.innerHTML = (state.activity ?? []).slice(0, 22).map((e) => {
     if (e.kind === 'reuse') {
-      return `<li><span class="feed-date">${relativeDate(e.date)}</span>
+      return `<li><span class="feed-date">${esc(relativeDate(e.date))}</span>
         <span class="feed-icon" title="agency adoption" aria-hidden="true">🏛️</span>
         <span class="feed-what"><strong>${esc(e.agency)}</strong> adopted ${esc(e.cso)} <span class="sub">(${esc(e.csp)})</span></span></li>`;
     }
-    return `<li><span class="feed-date">${relativeDate(e.date)}</span>
+    return `<li><span class="feed-date">${esc(relativeDate(e.date))}</span>
       <span class="feed-icon" title="status change" aria-hidden="true">＋</span>
       <span class="feed-what">${esc(e.cso)} <span class="sub">(${esc(e.csp)})</span> <span aria-hidden="true">→</span><span class="visually-hidden">changed to</span> <strong>${esc(e.to)}</strong>${e.class ? ` <span class="pill">${esc(e.class)}</span>` : ''}</span></li>`;
   }).join('');

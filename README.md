@@ -49,6 +49,7 @@ tools/
   transforms.test.mjs      the test suite, incl. deliberately nasty event-log fixtures
   hostile.test.mjs         hostile-input fixtures: XSS payloads, prototype pollution, bad dates
   fetch.test.mjs           bounded-download, digest, and immutable-revision trust-boundary tests
+  security-policy.test.mjs CSP strictness, no-inline-style, and snapshot-provenance assertions
   check-links.mjs          audits every cited URL across all pages and the source registry
 .github/workflows/
   ci.yml                   unit + Playwright E2E/a11y/responsive/render tests on every push/PR
@@ -70,8 +71,10 @@ The upstream feeds are treated as hostile input. Mutable branch names are resolv
 GitHub API, then data is fetched only by immutable commit; the exact revision, URL, byte count,
 Git blob match, and SHA-256 digest are exposed in the UI and recorded with snapshots. Downloads
 are byte-capped while streaming and digested before parsing. Every string is sanitized at the
-transforms boundary (type-checked, length-capped, control characters stripped, fields allowlisted),
-escaped again at every render sink, and the pages carry a Content-Security-Policy that
+transforms boundary (type-checked, length-capped, control characters stripped, fields allowlisted) —
+the bundled snapshots at generation time, the live path in-browser, with both load paths
+shape-validated before the atomic state swap. Strings are escaped again at every render sink
+(URL sinks get a scheme allowlist instead), and the pages carry a Content-Security-Policy that
 allowlists only GitHub's provenance endpoints and two immutable data mirrors — so even a missed
 escape couldn't execute script or phone home elsewhere. A hostile-fixture test suite (script
 tags, `javascript:` URLs, `__proto__` keys, oversized strings, malformed dates) runs in CI,

@@ -225,7 +225,8 @@ export function columns(container, data, { seriesName = '', valueLabel = null, a
 
 /**
  * Horizontal bar list (single series) with value labels at bar end.
- * data: [{label, sub, value}]
+ * data: [{label, sub, value, id?}] — an id, when given, is carried on the
+ * row as data-id so callers can address rows by identity, not position.
  */
 export function barList(container, data, { format = (v) => String(v), caption = 'Chart data' } = {}) {
   container.innerHTML = '';
@@ -240,6 +241,7 @@ export function barList(container, data, { format = (v) => String(v), caption = 
   for (const d of data) {
     const row = document.createElement('div');
     row.className = 'barlist-row';
+    if (d.id != null) row.dataset.id = d.id;
     row.innerHTML = `
       <div class="barlist-label"><span class="barlist-name"></span><span class="barlist-sub"></span></div>
       <div class="barlist-track"><progress class="barlist-bar" aria-hidden="true"></progress><span class="barlist-value"></span></div>`;

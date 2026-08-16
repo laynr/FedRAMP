@@ -49,7 +49,8 @@ Screen-record the live site (https://laynr.github.io/FedRAMP/); webcam optional.
      fetch get identical protection."
   2. "Escape at every render sink — feed strings never reach an HTML parser."
   3. "Content-Security-Policy on every page — the browser is *incapable* of contacting anything
-     but the two GSA data CDNs. No trackers isn't a promise, it's policy."
+     but GitHub's API (for provenance checks) and the two immutable data mirrors. No trackers
+     isn't a promise, it's policy."
   4. "Hostile-fixture tests in CI — script tags, `javascript:` URLs, prototype-pollution keys,
      oversized strings through every transform — and the weekly refresh scans snapshots before
      committing, so poisoned data can't even land in the repo."
@@ -58,9 +59,12 @@ Screen-record the live site (https://laynr.github.io/FedRAMP/); webcam optional.
   own finished work, adversarially. They found XSS paths from the feed to the DOM, a chart that
   could freeze the tab on empty data, a live-refresh that left three of four views stale — and
   a percentile off-by-one that changed the headline median from 361 to 327 days. Every fix
-  shipped with a regression test; the suite went from 15 tests to 39. I even verified it in the
-  browser by injecting live XSS payloads into every field of a fake service — they all render
-  as inert text."
+  shipped with a regression test; the suite grew from 15 tests to 54 unit tests plus 7 browser
+  tests. I even verified it in the browser by injecting live XSS payloads into every field of a
+  fake service — they all render as inert text. And when a final harsh-grade pass on the
+  finished submission found more — including a tie-break bug misreporting eight services'
+  current status, and a stale time claim in my own docs — those fixes and their story shipped
+  too."
 - Land the point: "Catching your own headline number is the point: verification culture over
   confidence. The commit history shows all three versions — including the teardown."
 
@@ -68,7 +72,10 @@ Screen-record the live site (https://laynr.github.io/FedRAMP/); webcam optional.
 - "Judgment calls I'd defend: vanilla and dependency-free for reviewability; static by scope —
   a production version gets a backend, notifications, a real API service; and honesty as a
   feature — small samples labeled, exclusions counted, 'unofficial' in the masthead."
-- Time spent: "About 2.6 hours wall-clock — the commit timestamps are the receipt, v1 through
-  the rebrand. Much of it was agents working while I was away; my time was judgment, not typing.
-  I optimized for leverage because that's what the brief rewards." "It's the rare FedRAMP
-  resource that gets more correct over time — and gives you a reason to come back."
+- Time spent: "Time is computed the way everything else here is — a script classifies the
+  session-transcript timestamps into agent processing, my typed input, and dead time away from
+  the keyboard, which it subtracts. The numbers and their boundaries are in the submission doc;
+  the one session another tool ran isn't captured, so I don't claim a number for it. My time
+  was judgment, not typing — I optimized for leverage because that's what the brief rewards."
+  "It's the rare FedRAMP resource that gets more correct over time — and gives you a reason to
+  come back."

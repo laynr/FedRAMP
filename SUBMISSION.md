@@ -35,8 +35,22 @@ screen readers, and its data layer is a reusable Claude Code skill. See [`README
 for architecture and [`AGENTS.md`](AGENTS.md) for how it was built.
 
 ## Time
-~2.6 hours wall-clock (git timestamps 10:31–13:12, 2026-08-15). See RATIONALE "Time spent" for
-the honest asterisks (much ran as background agents; the work was judgment, not typing).
+Computed from the shipped transcripts, not asserted — reproduce with `node tools/time-report.mjs`
+(classifies every transcript timestamp gap into agent processing / typed human input / dead time,
+5-minute idle threshold; dead time away from the keyboard is subtracted):
+
+- **Measured active time, all captured sessions: ~3.4 h** — 3.2 h agent processing +
+  ~11 min typed human input across 26 prompts; 1.2 h of dead time subtracted. That covers the
+  morning build (09:45–13:23), an afternoon check-in, two brief evening sessions, and the
+  post-submission integrity pass (grade-then-fix, through ~21:34).
+- **Not measured:** the evening Codex hardening session — no raw log retained, so no number is
+  claimed; it's bounded only by its commits (20:50–21:02) and summarized in
+  `transcripts/codex-hardening-session.md`. The measured 3.4 h is therefore a floor, not the total.
+- **Calendar span:** first commit 10:31 to final push, 2026-08-15 — one day, with hours away
+  between blocks.
+
+An earlier version of this file claimed "~2.6 hours (10:31–13:12)"; that went stale the moment
+the evening commits landed. See RATIONALE "Time spent" for the correction and method.
 
 ## Notes for the reviewer
 - Unofficial; not affiliated with or endorsed by GSA. FedRAMP® is a registered trademark of GSA;

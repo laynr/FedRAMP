@@ -33,6 +33,6 @@ Examples: `products --impact "20x Moderate"` · `products --search vanta --json`
 ## Notes
 
 - Statuses: `FedRAMP Authorized`, `FedRAMP In Process`, `Agency In Process`, `FedRAMP Ready`. Impacts include 20x classes: `20x Low`, `20x Moderate` alongside `Low/LI-SaaS/Moderate/High`.
-- Tests: `node --test tools/*.test.mjs` — runs `transforms.test.mjs` (journey/percentile fixtures) and `hostile.test.mjs` (XSS payloads, `__proto__`, oversized strings, bad dates). Add `RUN_LIVE=1` for the live shape-check. Run tests after changing any transform.
+- Tests: `node --test tools/*.test.mjs` — runs `transforms.test.mjs` (journey/percentile fixtures), `hostile.test.mjs` (XSS payloads, `__proto__`, oversized strings, bad dates), `fetch.test.mjs` (byte caps, digests, immutable-revision trust boundary), and `security-policy.test.mjs` (CSP + provenance format). Add `RUN_LIVE=1` for the live shape-check. Run tests after changing any transform.
 - `snapshot` writes all 8 bundles to `docs/data/` (`products`, `journeys`, `stats`, `agencies`, `activity`, `ksi`, `changelog`, `meta`) and runs an integrity guard first — it aborts rather than commit suspicious content (e.g. `<script` or `javascript:` surviving sanitization).
 - The pruned bundles in `docs/data/` are public API surface (documented in `docs/data/README.md`) — don't rename fields casually.

@@ -53,9 +53,10 @@ export function fingerprint(product, journey) {
 
 /**
  * Compare saved fingerprints against current data.
- * Returns [{id, changes: [{field, from, to}]}] — only entries with changes.
- * A service that had real data but is absent from `current` (delisted or
- * gone from the feed) is reported as a `listed` change, never dropped.
+ * Returns [{id, changes: [{field, from, to}]}] — only entries with changes;
+ * `from` may be null (no previously recorded value). A service that had real
+ * data but is absent from `current` (delisted or gone from the feed) is
+ * reported as a `listed` change, never dropped.
  */
 export function diffFingerprints(saved, current) {
   const out = [];
@@ -68,9 +69,22 @@ export function diffFingerprints(saved, current) {
     }
     const changes = [];
     for (const field of ['status', 'impact', 'latest']) {
-      if (oldFp?.[field] != null && newFp[field] != null && oldFp[field] !== newFp[field]) {
-        changes.push({ field, from: oldFp[field], to: newFp[field] });
+      // Report whenever the CURRENT value exists and differs — including
+      // null → value: a watched service gaining its first recorded status
+      // (e.g. → "FedRAMP Authorized") is the transition this feature exists
+      // to catch, not a non-event.
+      if (newFp[field] != null && (oldFp?.[field] ?? null) !== newFp[field]) {
+        changes.push({ field, from: oldFp?.[field] ?? null, to: newFp[field] });
       }
+    }
+    // A re-dated event with the SAME status text (a fresh "In Process" row,
+    // say) is still movement; reported only when `latest` didn't already.
+    if (
+      newFp.latestDate != null &&
+      (oldFp?.latestDate ?? null) !== newFp.latestDate &&
+      !changes.some((c) => c.field === 'latest')
+    ) {
+      changes.push({ field: 'latestDate', from: oldFp?.latestDate ?? null, to: newFp.latestDate });
     }
     if (changes.length) out.push({ id, changes });
   }
