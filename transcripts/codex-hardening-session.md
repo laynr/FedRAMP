@@ -94,6 +94,11 @@ blocked by the host macOS sandbox denying browser Mach IPC registration. Equival
 flows above were exercised through the already-running in-app browser. The committed CI job runs
 the Playwright suite on Ubuntu, where that host-specific restriction does not apply.
 
+After the first push, that Ubuntu run exposed two test-harness defects: a Jest-only collection
+matcher and a role query that intentionally excluded a control in an inactive tab. Neither was
+an application failure. Both assertions were rewritten using Playwright-supported semantics and
+the workflow was rerun before final handoff.
+
 ## Deliberate non-changes and remaining limits
 
 - `VIDEO_SCRIPT.md` was left unchanged at the owner's request. It still contains the obsolete

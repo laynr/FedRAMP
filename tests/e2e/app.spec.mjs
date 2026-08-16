@@ -65,7 +65,7 @@ test('rendered Pulse layout keeps its visual hierarchy', async ({ page }) => {
     const box = tile.getBoundingClientRect();
     return { width: Math.round(box.width), height: Math.round(box.height), top: Math.round(box.top) };
   }));
-  expect(new Set(tileBoxes.map((box) => box.top))).toHaveSize(1);
+  expect(new Set(tileBoxes.map((box) => box.top)).size).toBe(1);
   expect(Math.max(...tileBoxes.map((box) => box.width)) - Math.min(...tileBoxes.map((box) => box.width))).toBeLessThanOrEqual(2);
   expect(Math.min(...tileBoxes.map((box) => box.height))).toBeGreaterThan(120);
   const chart = page.locator('#chart-years svg');
@@ -168,7 +168,9 @@ test('live refresh atomically replaces all feeds, including KSI, and exposes pro
   await expect(page.getByRole('button', { name: /Refreshed from source/ })).toBeVisible();
   await expect(page.locator('#ksi-version')).toHaveText('test-live-v2');
   await expect(page.locator('#ksi-fam-count')).toHaveText('1');
-  await expect(page.getByRole('searchbox', { name: 'Search services' })).toHaveAttribute('placeholder', /Search 1 service/);
+  // Services is not the active tab, so query its hidden control directly. This verifies
+  // renderAll refreshed off-screen views without weakening the visible-role checks elsewhere.
+  await expect(page.locator('#svc-search')).toHaveAttribute('placeholder', /Search 1 service/);
   await expect(page.locator('#data-provenance')).toContainText(marketCommit.slice(0, 12));
   await expect(page.locator('#data-provenance')).toContainText(rulesCommit.slice(0, 12));
   const sourceLinks = await page.locator('#data-provenance a').evaluateAll((links) => links.map((link) => link.href));
