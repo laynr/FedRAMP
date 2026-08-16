@@ -15,7 +15,7 @@ export function renderDuration() {
 
   const tiles = [
     { label: 'median days — all measured journeys', value: js.all?.p50, note: `${fmtOrDash(js.measured)} journeys measured` },
-    { label: 'median days — 20x / Program path', value: js.path20x?.p50, note: `n = ${fmtOrDash(js.path20x?.n)}`, accent: true },
+    { label: 'median days — explicit 20x cohort', value: js.path20x?.p50, note: `n = ${fmtOrDash(js.path20x?.n)}`, accent: true },
     { label: 'median days — legacy paths', value: js.legacy?.p50, note: `n = ${fmtOrDash(js.legacy?.n)}` },
     { label: 'fastest journey on record', value: js.fastest?.[0]?.days, note: js.fastest?.[0]?.cso ?? '—' },
   ];
@@ -51,8 +51,9 @@ export function renderDuration() {
     (n = ${fmtOrDash(js.path20x?.n)}) is still small and early — the comparison is directional, not a controlled study.
     Two structural biases favor the 20x number: only <em>finished</em> journeys are measured, and the 20x program
     is young enough that a long 20x journey cannot exist yet (right-censoring), while legacy paths include
-    decade-spanning completions from slower eras. And a service that switched paths mid-journey is attributed
-    to 20x if <em>any</em> of its events carry a 20x marker.
+    decade-spanning completions from slower eras. A measured journey is attributed to 20x only when an event
+    between its selected start and finish carries an explicit <code>cert_type</code> or <code>cert_path</code>
+    value of <code>20x</code>; the generic <code>Program</code> path is not treated as proof of 20x.
     Bars in the "fastest" list are only journeys finishing since 2025. Source: the changelog export in
     <a href="https://github.com/FedRAMP/marketplace-fedramp-gov-data" target="_blank" rel="noopener">FedRAMP's marketplace data repository</a>.</p>`;
 }

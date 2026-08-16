@@ -25,8 +25,9 @@ keys; an optional "fetch live" button recomputes from GSA's feeds in-browser. A 
 
 ## The one-paragraph pitch
 FedRAMP replaced its rulebook in mid-2026, so most content online is now stale. OnRamp is wired
-to the program's own live data, computes an answer nobody publishes (median ~70 days to certified
-on the new 20x path vs ~327 on legacy — with the sampling biases named), lets you watch services
+to the program's own live data, computes an answer nobody publishes (median ~64 days to certified
+in the explicit 20x cohort vs ~327 on legacy — with the sampling biases named), lets you watch
+services
 and see "what changed since you were last here," and reconstructs each service's real
 authorization journey from the event log. It treats the upstream feed as hostile input
 (sanitize-at-boundary + escape-at-sink + CSP + hostile-fixture tests), ships accessible to

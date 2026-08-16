@@ -30,7 +30,7 @@ text nobody visits twice.* So v2 inverted the product: **tool first, explainer d
    time-to-authorization analytics from it — with documented invariants, counted exclusions,
    and adversarial test fixtures — is provenance-and-correctness engineering, the same muscle
    regulated-environment work uses. It surfaced a finding I couldn't find published anywhere:
-   **median 70 days to certified on the 20x path vs 327
+   **median 64 days to certified in the explicit 20x cohort vs 327
    legacy** (n stated, caveats in-app).
 
 The v1 explainer wasn't discarded, though — reviewing v2 as a newcomer showed the tool now
@@ -46,8 +46,11 @@ a percentile implementation off by one rank, which **changed the headline median
 exists to publish**. Also caught: XSS sinks reachable from the upstream feed (fixed with
 sanitize-at-boundary + escape-at-sink + CSP), a stale-view bug after live refresh, and a CI
 claim in this very document that wasn't yet true (it is now — see below). I'd rather ship the
-corrected number with the story of catching it than the wrong number with confidence; that
-verification culture is the actual deliverable.
+corrected number with the story of catching it than the wrong number with confidence. A later
+adversarial pass also caught a Rev5 record mislabeled as 20x by an overly broad `Program`
+heuristic, incomplete KSI refresh, and mutable feed URLs; those now have regressions, an atomic
+three-feed refresh, commit-anchored Git blob checks, pre-parse SHA-256 evidence, and browser/a11y CI.
+That verification culture is the actual deliverable.
 
 ## The non-obvious part
 
@@ -60,7 +63,7 @@ live views run the same code.
 
 ## Key decisions & tradeoffs
 
-- **Vanilla, zero dependencies, no build step.** Reviewability over toolchain; the assignment
+- **Vanilla, zero runtime dependencies, no build step.** Reviewability over toolchain; the assignment
   rewards scoping. Charts are hand-rolled SVG following a validated color/accessibility method
   (colorblind-safe series separation, designed dark mode, reduced-motion respected).
 - **Snapshot-first, live-upgrade.** Instant first paint, works offline, self-contained for
@@ -74,9 +77,10 @@ live views run the same code.
   (`tools/check-links.mjs`, run on a schedule by `.github/workflows/links.yml`; tests run on
   every push via `ci.yml`); exclusions counted and shown; the 20x/legacy comparison labeled
   directional; zero claims about any specific company's strategy; "unofficial" in the masthead.
-- **Hostile-input posture.** The upstream feed is treated as untrusted: sanitized at the parse
-  boundary, escaped at every sink, locked down with CSP, and exercised by hostile fixtures in
-  CI — because a tool that mirrors government data should be incapable of serving anything else.
+- **Hostile-input posture.** The upstream feed is treated as untrusted: mutable branches resolve
+  to exact commits; downloaded bytes must match the file's Git blob at that commit, are byte-capped,
+  and are SHA-256 digested before parsing; values are sanitized at the boundary, escaped at every
+  sink, locked down with CSP, and exercised by hostile fixtures plus browser/a11y CI.
 
 ## With more time
 

@@ -19,7 +19,7 @@ engineer who had never touched FedRAMP before this project.
   profile with its **journey** (its actual dated path through the authorization process,
   reconstructed from FedRAMP's status-change log), who uses it, and its reuse footprint.
 - **How long?** — the question every newcomer asks, answered from the event log instead of
-  folklore: median **70 days** to certified on the 20x path vs
+  folklore: median **64 days** to certified on the explicit 20x cohort vs
   **327** on legacy paths (as of Aug 2026; n and caveats stated in-app), with
   distribution and a fastest-journeys leaderboard.
 - **Agencies** — who's adopting what across federal agencies.
@@ -33,12 +33,12 @@ engineer who had never touched FedRAMP before this project.
 ## The engineering underneath
 
 ```
-docs/                      the app — vanilla HTML/CSS/ES modules, zero deps, no build step
+docs/                      the app — vanilla HTML/CSS/ES modules, zero runtime deps, no build step
   index.html               the tool; learn.html — the explainer; about.html — sources & method
   js/transforms.js         pure transforms incl. the journey engine (see invariants in-file)
-  js/data.js               state + live-refresh lifecycle (fetch hygiene: timeout, size cap,
-                           shape check, atomic swap)
-  js/feeds.js              the upstream feed registry (URLs + fallbacks), shared browser/CLI
+  js/data.js               state + all-feed live refresh (bounded fetch, validation, atomic swap)
+  js/feeds.js              feed identities + immutable Git revision resolution, shared browser/CLI
+  js/fetch-json.js         streamed cap, Git-blob match, UTF-8/JSON validation, SHA-256
   js/views/                pulse.js, services.js, duration.js, agencies.js — one module per view
   js/ui.js, js/charts.js   shared primitives: escaping, safe storage, hand-rolled SVG charts
   js/watchlist.js          versioned localStorage schema + pure fingerprint diff
@@ -48,9 +48,10 @@ tools/
   fedramp-data.mjs         zero-dep CLI: fetch/products/ksi/changelog/journeys/stats/snapshot
   transforms.test.mjs      the test suite, incl. deliberately nasty event-log fixtures
   hostile.test.mjs         hostile-input fixtures: XSS payloads, prototype pollution, bad dates
+  fetch.test.mjs           bounded-download, digest, and immutable-revision trust-boundary tests
   check-links.mjs          audits every cited URL across all pages and the source registry
 .github/workflows/
-  ci.yml                   tests on every push/PR; links.yml — scheduled link audit
+  ci.yml                   unit + Playwright E2E/a11y/responsive/render tests on every push/PR
   refresh-data.yml         weekly: test → re-snapshot → commit; pages.yml — Pages deploy
 .claude/skills/fedramp-data/   the CLI documented as a Claude Code skill
 ```
@@ -60,24 +61,31 @@ real-world event data — migration-era backfill, out-of-order rows, duplicates,
 recorded start or finish. The engine documents its invariants, excludes what it can't trust
 *and counts the exclusions* (surfaced in the app's method note), and is tested against fixtures
 for each failure mode. The same transforms module computes the numbers in CI snapshots and in
-your browser's "fetch live", so the two paths share one implementation: products, journeys, and
-activity recompute live; the rules catalog updates with the weekly snapshot.
+your browser's "fetch live", so the two paths share one implementation: products, journeys,
+activity, agencies, and the KSI rules catalog all recompute live in one atomic state swap.
 
 ## Security
 
-The upstream feeds are treated as hostile input: every string is sanitized at the transforms
-boundary (type-checked, length-capped, control characters stripped, fields allowlisted),
+The upstream feeds are treated as hostile input. Mutable branch names are resolved through the
+GitHub API, then data is fetched only by immutable commit; the exact revision, URL, byte count,
+Git blob match, and SHA-256 digest are exposed in the UI and recorded with snapshots. Downloads
+are byte-capped while streaming and digested before parsing. Every string is sanitized at the
+transforms boundary (type-checked, length-capped, control characters stripped, fields allowlisted),
 escaped again at every render sink, and the pages carry a Content-Security-Policy that
-allowlists only the two data CDNs — so even a missed escape couldn't execute script or phone
-home. A hostile-fixture test suite (script tags, `javascript:` URLs, `__proto__` keys,
-oversized strings, malformed dates) runs in CI, and the weekly refresh scans snapshots before
-committing them. No analytics, no trackers, no third-party scripts.
+allowlists only GitHub's provenance endpoints and two immutable data mirrors — so even a missed
+escape couldn't execute script or phone home elsewhere. A hostile-fixture test suite (script
+tags, `javascript:` URLs, `__proto__` keys, oversized strings, malformed dates) runs in CI,
+alongside browser workflows, automated WCAG
+checks, responsive overflow checks, and rendered-layout assertions. The weekly refresh scans
+snapshots before committing them. No analytics, no trackers, no third-party scripts.
 
 ## Run it
 
 ```bash
 python3 -m http.server 4173 --directory docs   # → http://localhost:4173/
 node --test tools/*.test.mjs                   # tests (RUN_LIVE=1 adds live shape checks)
+npm ci && npx playwright install chromium      # one-time browser-test setup
+npm run test:e2e                               # E2E + WCAG + responsive/render checks
 node tools/fedramp-data.mjs journeys --fastest # the CLI, dogfooded throughout
 node tools/check-links.mjs                     # citation link audit (also runs on a schedule in CI)
 ```
@@ -96,7 +104,7 @@ node tools/fedramp-data.mjs journeys --fastest                  # fastest author
 node tools/fedramp-data.mjs ksi CNA                             # a KSI family's indicators + NIST controls
 ```
 
-Zero dependencies, safe by construction (sanitizes hostile input, aborts snapshots that contain
+Zero runtime dependencies, safe by construction (sanitizes hostile input, aborts snapshots that contain
 suspicious content). See the skill file for the full command list.
 
 ## Honesty notes
@@ -104,6 +112,6 @@ suspicious content). See the skill file for the full command list.
 Unofficial; not affiliated with or endorsed by GSA or the FedRAMP program. FedRAMP® is a
 registered trademark of GSA; source data is a U.S. Government work in the public domain
 (17 U.S.C. § 105) and derived stats here are unofficial. Duration analytics carry a visible
-method note (small 20x sample; right-censored; path-attribution is any-event-20x). No claims
+method note (small 20x sample; right-censored; explicit 20x markers only within the measured interval). No claims
 about any company's compliance strategy. No cost figures — none exist officially. Corrections:
 [open an issue](https://github.com/laynr/FedRAMP/issues). Design write-up: [RATIONALE.md](RATIONALE.md).

@@ -13,8 +13,56 @@ export function renderPulse() {
   renderYearsChart();
   renderTopReused();
   document.getElementById('data-freshness').textContent = freshnessLabel();
+  renderProvenance();
   wireLiveButton();
   onWatchChange(renderWatchCard); // Set-backed: same fn ref, registered once
+}
+
+function renderProvenance() {
+  const root = document.getElementById('data-provenance');
+  if (!root) return;
+  root.textContent = '';
+  const sources = state.meta?.sources ?? {};
+  const rows = [
+    ['Marketplace', sources.marketplace],
+    ['Changelog', sources.changelog],
+    ['Rules', sources.rules],
+  ].filter(([, source]) => source);
+  if (!rows.some(([, source]) => source.commit && source.sha256)) {
+    const p = document.createElement('p');
+    p.className = 'sub';
+    p.textContent = 'This older snapshot does not include immutable revision metadata.';
+    root.appendChild(p);
+    return;
+  }
+
+  const intro = document.createElement('p');
+  intro.className = 'sub';
+  intro.textContent = `${state.live ? 'Live refresh' : 'Bundled snapshot'}: branch heads were resolved to immutable Git commits; each file matched the blob recorded at that commit and was SHA-256 digested before parsing.`;
+  root.appendChild(intro);
+  const dl = document.createElement('dl');
+  dl.className = 'provenance-list';
+  for (const [label, source] of rows) {
+    const dt = document.createElement('dt');
+    dt.textContent = label;
+    const dd = document.createElement('dd');
+    if (source.url && source.commit) {
+      const a = document.createElement('a');
+      a.href = source.url;
+      a.target = '_blank';
+      a.rel = 'noopener';
+      a.textContent = source.commit.slice(0, 12);
+      a.setAttribute('aria-label', `${label} exact source at commit ${source.commit} (opens in a new tab)`);
+      dd.appendChild(a);
+    } else {
+      dd.append(source.commit?.slice(0, 12) ?? '—');
+    }
+    if (source.blobSha) dd.append(` · Git blob ${source.blobSha.slice(0, 12)} verified`);
+    if (source.sha256) dd.append(` · SHA-256 ${source.sha256.slice(0, 16)}…`);
+    if (Number.isFinite(source.bytes)) dd.append(` · ${fmt(source.bytes)} bytes`);
+    dl.append(dt, dd);
+  }
+  root.appendChild(dl);
 }
 
 // ---------- "since you were last here" ----------

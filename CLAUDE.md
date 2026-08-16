@@ -32,8 +32,9 @@ all built on FedRAMP's own machine-readable data. Hosted on GitHub Pages.
 
 - **fedramp.gov link rot is pervasive** since the June-2026 site restructure. Never cite an
   unchecked URL; run `node tools/check-links.mjs` after touching any citation.
-- **jsDelivr caches `@main` for ~12 hours.** Freshness claims must account for it; the
-  raw.githubusercontent fallback in `docs/js/feeds.js` exists for exactly this reason.
+- **Never consume a mutable branch URL as data.** `docs/js/feeds.js` resolves the branch head,
+  anchors each file to its Git blob, and then uses commit-pinned jsDelivr/raw URLs as availability
+  mirrors. Keep that trust boundary shared by browser and CLI.
 - **Pushes made with `GITHUB_TOKEN` do not trigger Pages branch deploys.** That's why Pages
   deploys through the Actions flow (`pages.yml`), not the branch-publish path.
 - **Node 22 `node --test tools/` does not glob** — it errors on the directory. Always use
@@ -51,8 +52,9 @@ all built on FedRAMP's own machine-readable data. Hosted on GitHub Pages.
   footer. Never add the FedRAMP logo/stamp — that's the bright line requiring written permission.
 - **Government data is public domain (17 U.S.C. § 105), not "©".** Never write "Data © GSA";
   say it's a U.S. Government work in the public domain, and that derived stats are unofficial.
-- **Name statistical biases outright.** The 70-vs-327 comparison is right-censored (the 20x
-  program is too young to contain long journeys) and path-attribution is any-event-20x; both
+- **Name statistical biases outright.** The 64-vs-327 comparison is right-censored (the 20x
+  program is too young to contain long journeys) and path attribution requires an explicit
+  20x marker within the measured start-to-finish interval; both
   are stated in the method note. Hedging one sentence short of the mechanism reads as spin.
 - **Screen-reader duty on every chart/dynamic update**: visually-hidden data table per chart,
   `role=status` live regions for async results, contextual button names ("Watch ${cso}", never

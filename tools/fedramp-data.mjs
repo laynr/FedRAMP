@@ -7,7 +7,8 @@
  *   changelog    github.com/FedRAMP/marketplace-fedramp-gov-data  fedramp-status-changelog.json
  *   rules        github.com/FedRAMP/rules                         fedramp-consolidated-rules.json
  *
- * Feed URLs live in docs/js/feeds.js — one registry shared with the browser.
+ * Feed identities and immutable-revision resolution live in docs/js/feeds.js
+ * — one trust boundary shared with the browser.
  *
  * Commands:
  *   fetch [--force]                    download sources to .cache/ (6h freshness window)
@@ -22,7 +23,8 @@
 import { readFile, writeFile, mkdir, stat, rename } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
-import { FEEDS, FETCH_LIMITS } from '../docs/js/feeds.js';
+import { FEEDS, FETCH_LIMITS, COMMIT_RE, resolveFeedRevisions } from '../docs/js/feeds.js';
+import { fetchJSONResource, sha256Hex, gitBlobSha1, assertGitBlobIdentity } from '../docs/js/fetch-json.js';
 import {
   slimProducts, computeStats, pruneKsi, pruneChangelog,
   buildJourneys, journeyStats, buildActivity, slimAgencies,
@@ -35,7 +37,7 @@ const CACHE_DIR = path.join(ROOT, '.cache');
 const OUT_DIR = path.join(ROOT, 'docs', 'data');
 const CACHE_TTL_MS = 6 * 60 * 60 * 1000;
 
-// Cache-file names are a CLI concern; URLs come from the shared registry.
+// Cache-file names are a CLI concern; source identities come from the shared registry.
 const CACHE_FILES = { marketplace: 'marketplace.json', changelog: 'changelog.json', rules: 'rules.json' };
 
 export const SOURCES = Object.fromEntries(
@@ -74,43 +76,101 @@ async function isFresh(file) {
   }
 }
 
+const sourceDetails = new Map();
+
+/** Exact immutable revision and digest used by the latest fetchSource call. */
+export function getSourceDetails(name) {
+  return sourceDetails.get(name) ?? null;
+}
+
+function snapshotProvenance(name, extra = {}) {
+  const detail = getSourceDetails(name);
+  return {
+    home: SOURCES[name].home,
+    ...(detail && {
+      repo: detail.repo,
+      file: detail.file,
+      commit: detail.commit,
+      commitDate: detail.commitDate,
+      blobSha: detail.blobSha,
+      url: detail.url,
+      sha256: detail.sha256,
+      bytes: detail.bytes,
+    }),
+    ...extra,
+  };
+}
+
+async function readVerifiedCache(cached, metadataFile) {
+  const [body, metadataText] = await Promise.all([
+    readFile(cached),
+    readFile(metadataFile, 'utf8'),
+  ]);
+  const metadata = JSON.parse(metadataText);
+  if (!COMMIT_RE.test(metadata?.commit) || !COMMIT_RE.test(metadata?.blobSha) || !/^[0-9a-f]{64}$/.test(metadata?.sha256 ?? '')) {
+    throw new Error('cache provenance is missing or invalid');
+  }
+  const [actualDigest, actualBlob] = await Promise.all([sha256Hex(body), gitBlobSha1(body)]);
+  if (actualDigest !== metadata.sha256) throw new Error('cached body does not match its SHA-256 digest');
+  if (actualBlob !== metadata.blobSha) throw new Error('cached body does not match the Git blob at its recorded commit');
+  return { data: JSON.parse(body.toString('utf8')), metadata };
+}
+
 export async function fetchSource(name, { force = false } = {}) {
   const src = SOURCES[name];
   if (!src) throw new Error(`unknown source: ${name}`);
   const cached = path.join(CACHE_DIR, src.file);
-  if (!force && (await isFresh(cached))) {
+  const metadataFile = `${cached}.meta.json`;
+  if (!force && (await isFresh(cached)) && (await isFresh(metadataFile))) {
     try {
-      return JSON.parse(await readFile(cached, 'utf8'));
+      const { data, metadata } = await readVerifiedCache(cached, metadataFile);
+      sourceDetails.set(name, metadata);
+      return data;
     } catch {
-      // corrupt or unreadable cache — fall through to the network
+      // Corrupt, mismatched, or legacy cache — reacquire with provenance.
     }
   }
+
   let lastErr;
-  for (const url of src.urls) {
+  let resolved;
+  try {
+    resolved = (await resolveFeedRevisions([name], { force }))[name];
+  } catch (err) {
+    lastErr = err;
+  }
+  for (const url of resolved?.urls ?? []) {
     try {
-      const res = await fetch(url, { signal: AbortSignal.timeout(FETCH_LIMITS.timeoutMs) });
-      if (!res.ok) throw new Error(`${res.status} ${res.statusText} for ${url}`);
-      const len = Number(res.headers.get('content-length'));
-      if (Number.isFinite(len) && len > FETCH_LIMITS.maxBytes) {
-        throw new Error(`response too large (${len} bytes > ${FETCH_LIMITS.maxBytes}) for ${url}`);
-      }
-      const text = await res.text();
-      if (Buffer.byteLength(text) > FETCH_LIMITS.maxBytes) {
-        throw new Error(`response too large (${Buffer.byteLength(text)} bytes > ${FETCH_LIMITS.maxBytes}) for ${url}`);
-      }
-      const data = JSON.parse(text);
+      const result = await fetchJSONResource(url, FETCH_LIMITS);
+      assertGitBlobIdentity(result.gitBlobSha1, resolved.blobSha, name);
+      const metadata = {
+        home: resolved.home,
+        repo: resolved.repo,
+        file: resolved.file,
+        commit: resolved.commit,
+        commitDate: resolved.commitDate,
+        blobSha: resolved.blobSha,
+        url,
+        sha256: result.sha256,
+        bytes: result.bytes,
+        fetchedAt: new Date().toISOString(),
+      };
       await mkdir(CACHE_DIR, { recursive: true });
-      await writeFileAtomic(cached, text);
-      return data;
+      await writeFileAtomic(cached, result.text);
+      await writeFileAtomic(metadataFile, JSON.stringify(metadata));
+      sourceDetails.set(name, metadata);
+      return result.data;
     } catch (err) {
       lastErr = err;
     }
   }
-  // last resort: stale cache beats nothing
+
+  // Last resort: a cryptographically verified stale cache beats nothing.
   try {
-    return JSON.parse(await readFile(cached, 'utf8'));
+    const { data, metadata } = await readVerifiedCache(cached, metadataFile);
+    sourceDetails.set(name, { ...metadata, stale: true });
+    return data;
   } catch {
-    throw lastErr;
+    throw lastErr ?? new Error(`no usable source or verified cache for ${name}`);
   }
 }
 
@@ -211,7 +271,9 @@ async function main() {
       for (const name of Object.keys(SOURCES)) {
         const data = await fetchSource(name, { force: !!flags.force });
         const size = JSON.stringify(data).length;
-        console.log(`${name.padEnd(12)} ok  (~${Math.round(size / 1024)} KB cached)`);
+        const detail = getSourceDetails(name);
+        const revision = detail ? ` · ${detail.commit.slice(0, 12)} · sha256:${detail.sha256.slice(0, 12)}` : '';
+        console.log(`${name.padEnd(12)} ok  (~${Math.round(size / 1024)} KB cached${revision})`);
       }
       break;
     }
@@ -298,9 +360,9 @@ async function main() {
             rules?.info?.last_updated,
           ]),
           sources: {
-            marketplace: { home: SOURCES.marketplace.home, lastChange: mkt?.meta?.last_change },
-            changelog: { home: SOURCES.changelog.home, exported: cl?.metadata?.export_timestamp },
-            rules: { home: SOURCES.rules.home, version: rules?.info?.version, updated: rules?.info?.last_updated },
+            marketplace: snapshotProvenance('marketplace', { lastChange: mkt?.meta?.last_change }),
+            changelog: snapshotProvenance('changelog', { exported: cl?.metadata?.export_timestamp }),
+            rules: snapshotProvenance('rules', { version: rules?.info?.version, updated: rules?.info?.last_updated }),
           },
         },
       };

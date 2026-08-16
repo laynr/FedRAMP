@@ -5,7 +5,7 @@ description: Fetch and query official FedRAMP machine-readable data (marketplace
 
 # fedramp-data
 
-Zero-dependency Node CLI wrapping the official FedRAMP data feeds (GSA-published, on GitHub). Run from the repo root. Data caches in `.cache/` for 6 hours; add `--force` to a `fetch` to bust it.
+Zero-dependency Node CLI wrapping the official FedRAMP data feeds (GSA-published, on GitHub). Run from the repo root. Data caches in `.cache/` for 6 hours; cached bodies are accepted only when they match their recorded Git blob and SHA-256 identities. Add `--force` to a `fetch` to bust the cache.
 
 ## Commands
 

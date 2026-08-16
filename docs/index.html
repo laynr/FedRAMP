@@ -3,15 +3,14 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<!-- CSP: no external scripts/styles/frames; network access only to self plus the
-     two GSA-published data CDNs (jsDelivr primary, raw.githubusercontent fallback).
-     style-src needs 'unsafe-inline' only because chart bars set width via an
-     inline style attribute in a template — a weak primitive; see about.html. -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https://cdn.jsdelivr.net https://raw.githubusercontent.com; base-uri 'none'; form-action 'none'; object-src 'none'">
+<!-- CSP: no external scripts/styles/frames; network access only to self, GitHub's
+     commit API, and two mirrors for the GSA-published data (jsDelivr primary,
+     raw.githubusercontent fallback). Scripts and styles are self-only. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self' https://api.github.com https://cdn.jsdelivr.net https://raw.githubusercontent.com; base-uri 'none'; form-action 'none'; object-src 'none'">
 <meta name="referrer" content="strict-origin-when-cross-origin">
 <title>OnRamp — an unofficial FedRAMP explorer</title>
 <meta name="description" content="OnRamp is an unofficial, live explorer for FedRAMP data: track services, see real authorization timelines, watch what changed — powered by the program's own published feeds.">
-<link rel="stylesheet" href="css/site.css">
+<link rel="stylesheet" href="css/site.css?v=20260815-3">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📡</text></svg>">
 </head>
 <body>
@@ -69,6 +68,10 @@
         </div>
         <div class="panel">
           <p class="sub" id="data-freshness"></p>
+          <details class="provenance">
+            <summary>Source revisions &amp; integrity</summary>
+            <div id="data-provenance"></div>
+          </details>
           <button id="refresh-live">Fetch live from the GSA-published feed</button>
           <span id="refresh-status" class="visually-hidden" role="status"></span>
         </div>
@@ -188,6 +191,6 @@
     <a href="about.html">Sources &amp; method</a> · <a href="https://github.com/laynr/FedRAMP">GitHub</a> · <a href="https://github.com/laynr/FedRAMP/issues">Corrections welcome</a></p>
 </footer>
 
-<script type="module" src="js/app.js"></script>
+<script type="module" src="js/app.js?v=20260815-3"></script>
 </body>
 </html>

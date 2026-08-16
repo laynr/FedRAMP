@@ -4,13 +4,11 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <!-- CSP: no external scripts/styles/frames; network access only to self plus the
-     two GSA-published data CDNs. style-src carries 'unsafe-inline' only because
-     the tool's chart bars set width via an inline style attribute — explained in
-     the security note below. -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https://cdn.jsdelivr.net https://raw.githubusercontent.com; base-uri 'none'; form-action 'none'; object-src 'none'">
+     two GSA-published data mirrors. Scripts and styles are self-only. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self' https://cdn.jsdelivr.net https://raw.githubusercontent.com; base-uri 'none'; form-action 'none'; object-src 'none'">
 <meta name="referrer" content="strict-origin-when-cross-origin">
 <title>Sources &amp; method — OnRamp</title>
-<link rel="stylesheet" href="css/site.css">
+<link rel="stylesheet" href="css/site.css?v=20260815-3">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📡</text></svg>">
 </head>
 <body>
@@ -64,16 +62,17 @@
   <h2>Security &amp; the live-data trust model</h2>
   <div class="panel">
     <p>
-      Live mode fetches from FedRAMP's published GitHub data via CDN; every string from the feed
-      is sanitized at ingestion and escaped at render, and this page's Content-Security-Policy
-      prevents the browser from contacting any other network destination — but if you require
-      verified-at-rest data, use the official
-      <a href="https://marketplace.fedramp.gov/" rel="noopener">Marketplace</a>. One deliberate
-      CSP concession: <code>style-src</code> allows inline styles because the chart bars size
-      themselves with an inline <code>width</code> style; style injection is a weak primitive
-      (no script execution, no network access), so we accepted it rather than ship a CSS
-      workaround. There are no analytics, trackers, third-party scripts, or fonts anywhere on
-      this site — the CSP makes that a guarantee, not a promise.
+      Live mode first resolves each FedRAMP repository's branch head through GitHub, then fetches
+      only that immutable commit through one of two mirrors. The exact commit, verified Git blob,
+      download URL, byte count, and pre-parse SHA-256 digest are shown in the Pulse provenance
+      panel. All three feeds — marketplace, changelog, and KSI rules — are transformed and swapped
+      atomically, so a partial
+      refresh can never mix vintages. Every string is sanitized at ingestion and escaped at render,
+      and the site's Content-Security-Policy limits network access to those endpoints — but if you
+      require an authoritative system of record, use the official
+      <a href="https://marketplace.fedramp.gov/" rel="noopener">Marketplace</a>. Inline scripts
+      and inline styles are both disallowed. There are no analytics, trackers, third-party
+      scripts, or fonts anywhere on this site — the CSP makes that a guarantee, not a promise.
     </p>
   </div>
 

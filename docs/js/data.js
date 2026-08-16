@@ -9,8 +9,9 @@
  * and views subscribe via onStateChange so nothing renders stale data.
  */
 
-import { slimProducts, computeStats, buildJourneys, journeyStats, buildActivity, slimAgencies } from './transforms.js';
-import { FEEDS, FETCH_LIMITS } from './feeds.js';
+import { slimProducts, computeStats, pruneKsi, buildJourneys, journeyStats, buildActivity, slimAgencies } from './transforms.js';
+import { FETCH_LIMITS, resolveFeedRevisions } from './feeds.js';
+import { fetchJSONResource, assertGitBlobIdentity } from './fetch-json.js';
 
 export const state = {
   products: [],
@@ -67,40 +68,41 @@ function index() {
 // ---------- fetch hygiene ----------
 
 /**
- * Bounded JSON fetch: timeout, content-length precheck, post-download size
- * check before JSON.parse, and a content-type sanity check. Note that
- * raw.githubusercontent.com serves JSON as text/plain — accepted deliberately.
+ * Bounded JSON fetch: timeout, content-length precheck, streaming byte cap
+ * before JSON.parse, UTF-8 validation, and content-type sanity. Note that raw
+ * GitHub serves JSON as text/plain — accepted deliberately.
  */
 async function getJSON(url) {
-  const res = await fetch(url, { signal: AbortSignal.timeout(FETCH_LIMITS.timeoutMs) });
-  if (!res.ok) throw new Error(`${res.status} for ${url}`);
-  const type = (res.headers.get('content-type') ?? '').toLowerCase();
-  if (type && !/(json|octet-stream|text\/plain)/.test(type)) {
-    throw new Error(`unexpected content-type "${type}" for ${url}`);
-  }
-  const declared = Number(res.headers.get('content-length'));
-  if (Number.isFinite(declared) && declared > FETCH_LIMITS.maxBytes) {
-    throw new Error(`response too large (${declared} bytes declared) for ${url}`);
-  }
-  const text = await res.text();
-  if (text.length > FETCH_LIMITS.maxBytes) {
-    throw new Error(`response too large (${text.length} chars) for ${url}`);
-  }
-  return JSON.parse(text);
+  return (await fetchJSONResource(url, FETCH_LIMITS)).data;
 }
 
-/** Try each configured URL for a feed in order (CDN first, raw fallback). */
-async function getFeed(name) {
+/** Fetch one already-resolved immutable feed and retain exact provenance. */
+async function getFeed(name, source) {
   let lastErr = null;
-  for (const url of FEEDS[name].urls) {
+  for (const url of source.urls) {
     try {
-      return await getJSON(url);
+      const result = await fetchJSONResource(url, FETCH_LIMITS);
+      assertGitBlobIdentity(result.gitBlobSha1, source.blobSha, name);
+      return {
+        data: result.data,
+        provenance: {
+          home: source.home,
+          repo: source.repo,
+          file: source.file,
+          commit: source.commit,
+          commitDate: source.commitDate,
+          blobSha: source.blobSha,
+          url,
+          sha256: result.sha256,
+          bytes: result.bytes,
+        },
+      };
     } catch (err) {
       lastErr = err;
-      console.warn(`feed "${name}" fetch failed for ${url} — trying next source`, err);
+      console.warn(`immutable feed "${name}" failed for ${url} — trying mirror`, err);
     }
   }
-  throw lastErr ?? new Error(`no URLs configured for feed "${name}"`);
+  throw lastErr ?? new Error(`no immutable URLs resolved for feed "${name}"`);
 }
 
 // ---------- loading ----------
@@ -121,14 +123,33 @@ export async function loadSnapshot() {
  * single Object.assign — any throw leaves the current state fully intact.
  */
 export async function refreshLive() {
-  const [mkt, cl] = await Promise.all([getFeed('marketplace'), getFeed('changelog')]);
+  const names = ['marketplace', 'changelog', 'rules'];
+  const resolved = await resolveFeedRevisions(names, { force: true });
+  const loaded = Object.fromEntries(await Promise.all(names.map(async (name) => [name, await getFeed(name, resolved[name])])));
+  const mkt = loaded.marketplace.data;
+  const cl = loaded.changelog.data;
+  const rules = loaded.rules.data;
   const built = buildJourneys(cl);
   const next = {
     products: slimProducts(mkt),
     stats: { ...computeStats(mkt), journeys: journeyStats(built) },
+    ksi: pruneKsi(rules),
     journeys: built.journeys,
     agencies: slimAgencies(mkt),
     activity: buildActivity(mkt, cl),
+    meta: {
+      mode: 'live',
+      generated: new Date().toISOString(),
+      sources: {
+        marketplace: { ...loaded.marketplace.provenance, lastChange: mkt?.meta?.last_change ?? null },
+        changelog: { ...loaded.changelog.provenance, exported: cl?.metadata?.export_timestamp ?? null },
+        rules: {
+          ...loaded.rules.provenance,
+          version: rules?.info?.version ?? null,
+          updated: rules?.info?.last_updated ?? null,
+        },
+      },
+    },
     live: true,
   };
   if (!Array.isArray(next.products) || next.products.length === 0) {
@@ -139,6 +160,9 @@ export async function refreshLive() {
   }
   if (!Array.isArray(next.journeys)) {
     throw new Error('live refresh produced no journeys — keeping current data');
+  }
+  if (!Array.isArray(next.ksi?.families) || next.ksi.families.length === 0) {
+    throw new Error('live refresh produced no KSI families — keeping current data');
   }
   Object.assign(state, next);
   index();

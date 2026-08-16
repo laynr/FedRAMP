@@ -226,6 +226,32 @@ test('journeys: happy path measures start→end and keeps event chain', () => {
   assert.deepEqual(excluded, { delistedOnly: 0, noEnd: 0, noStart: 0, invalidOrder: 0 });
 });
 
+test('journeys: Program/Rev5 is legacy; only explicit 20x markers set the cohort', () => {
+  const programRev5 = J([
+    row('P1', '2024-01-01T00:00:00Z', 'Initial Program Review', { cert_type: 'Rev5', cert_path: 'Program' }),
+    row('P1', '2024-02-01T00:00:00Z', 'Authorized', { cert_type: 'Rev5', cert_path: 'Program' }),
+  ]).journeys[0];
+  const explicitPath = J([
+    row('P2', '2026-01-01T00:00:00Z', 'Initial Program Review', { cert_type: 'Rev5', cert_path: '20x' }),
+    row('P2', '2026-02-01T00:00:00Z', 'Authorized', { cert_type: 'Rev5', cert_path: '20x' }),
+  ]).journeys[0];
+
+  assert.equal(programRev5.is20x, false);
+  assert.equal(explicitPath.is20x, true);
+});
+
+test('journeys: a later 20x event cannot relabel an earlier legacy completion', () => {
+  const j = J([
+    row('P1', '2020-01-01T00:00:00Z', 'Agency Review', { cert_type: 'Rev5', cert_path: 'Agency' }),
+    row('P1', '2021-01-01T00:00:00Z', 'Authorized', { cert_type: 'Rev5', cert_path: 'Agency' }),
+    row('P1', '2026-01-01T00:00:00Z', 'Initial Program Review', { cert_type: '20x', cert_path: 'Program' }),
+  ]).journeys[0];
+
+  assert.equal(j.days, 366);
+  assert.equal(j.is20x, false);
+  assert.equal(j.current, 'Initial Program Review');
+});
+
 test('journeys: out-of-order rows are sorted; duplicates collapse', () => {
   const { journeys } = J([
     row('P1', '2026-04-20T00:00:00Z', 'Authorized'),

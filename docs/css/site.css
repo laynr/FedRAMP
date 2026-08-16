@@ -4,8 +4,9 @@
   color-scheme: light;
   /* Warm "book" neutrals: paper-ivory grounds, warm near-black ink (never pure
      white/black), a single coral accent used sparingly. Contrast verified WCAG
-     AA: ink 17.5:1, --ink-2 6.3:1, --accent-ink links 5.6:1, white-on-accent
-     4.05:1 (UI/large). Chart series stay the dataviz-validated blue/orange —
+     AA: ink 17.5:1, --ink-2 6.3:1, --accent-ink links 5.6:1. Active controls
+     use the higher-contrast --accent-fill/--on-accent pair. Chart series stay
+     the dataviz-validated blue/orange —
      they read cleanly on ivory and keep their colorblind-safe separation. */
   --page: #f4f2ec;
   --surface: #faf9f5;
@@ -19,6 +20,8 @@
   --series-2: #eb6834;
   --accent: #c6613f;
   --accent-ink: #a8451d;
+  --accent-fill: #a8451d;
+  --on-accent: #faf9f5;
   --good: #4f7a3a;
   --good-text: #3d6b28;
   --critical: #c0392b;
@@ -50,6 +53,8 @@
     --series-2: #d95926;
     --accent: #d97757;
     --accent-ink: #e8a07f;
+    --accent-fill: #d97757;
+    --on-accent: #141413;
     --good: #6fae52;
     --good-text: #7fbf62;
     --critical: #e0685a;
@@ -73,6 +78,8 @@
   --series-2: #d95926;
   --accent: #d97757;
   --accent-ink: #e8a07f;
+  --accent-fill: #d97757;
+  --on-accent: #141413;
   --good: #6fae52;
   --good-text: #7fbf62;
   --critical: #e0685a;
@@ -101,6 +108,7 @@ h1, h2, h3, h4 { line-height: 1.25; margin: 0.4em 0; }
 h2 { font-size: 22px; }
 h3 { font-size: 16.5px; }
 .sub { color: var(--muted-text); font-size: 13.5px; }
+.sub code { color: var(--ink); }
 button { font: inherit; }
 
 /* ---------- app header ---------- */
@@ -124,7 +132,7 @@ header.app {
   transition: background 0.15s, color 0.15s;
 }
 .tab:hover { background: var(--wash); color: var(--ink); }
-.tab.active { background: var(--accent); color: #fff; font-weight: 600; }
+.tab.active { background: var(--accent-fill); color: var(--on-accent); font-weight: 600; }
 .ghost-btn {
   border: 1px solid var(--border); background: var(--surface); color: var(--ink);
   border-radius: 999px; padding: 6px 13px; cursor: pointer; font-size: 14px;
@@ -308,11 +316,12 @@ svg .direct-label { fill: var(--ink); font-size: 12px; font-weight: 700; font-fa
 svg .series-1 { fill: var(--series-1); }
 svg .series-2 { fill: var(--series-2); }
 .chart-tip {
-  display: none; position: absolute; z-index: 50; pointer-events: none;
+  position: fixed; right: 12px; bottom: 12px; z-index: 50; pointer-events: none;
   background: var(--surface); color: var(--ink); border: 1px solid var(--border);
   border-radius: 8px; padding: 7px 10px; font-size: 13px; line-height: 1.45;
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12); max-width: 260px;
 }
+.chart-tip[hidden] { display: none; }
 .barlist-row { display: grid; grid-template-columns: minmax(140px, 38%) 1fr; gap: 10px; align-items: center; padding: 5px 0; }
 .barlist-row.clickable { cursor: pointer; }
 .barlist-row.clickable:hover { background: var(--wash); }
@@ -320,9 +329,17 @@ svg .series-2 { fill: var(--series-2); }
 .barlist-name { font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .barlist-sub { font-size: 12px; color: var(--muted-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .barlist-track { display: flex; align-items: center; gap: 8px; }
-.barlist-bar { height: 14px; border-radius: 0 4px 4px 0; background: var(--series-1); min-width: 3px; }
+.barlist-bar { appearance: none; width: 100%; height: 14px; border: 0; border-radius: 4px; background: transparent; }
+.barlist-bar::-webkit-progress-bar { background: var(--grid); border-radius: 4px; }
+.barlist-bar::-webkit-progress-value { background: var(--series-1); border-radius: 4px; }
+.barlist-bar::-moz-progress-bar { background: var(--series-1); border-radius: 4px; }
 .barlist-value { font-size: 12.5px; color: var(--ink-2); white-space: nowrap; font-variant-numeric: tabular-nums; }
 .method summary { cursor: pointer; font-weight: 600; }
+.provenance { margin: 8px 0 12px; font-size: 13px; }
+.provenance summary { cursor: pointer; font-weight: 600; }
+.provenance-list { display: grid; grid-template-columns: auto 1fr; gap: 4px 10px; margin: 8px 0; }
+.provenance-list dt { color: var(--muted-text); }
+.provenance-list dd { margin: 0; min-width: 0; overflow-wrap: anywhere; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11.5px; }
 
 /* ---------- KSI ---------- */
 #ksi-explorer { display: grid; grid-template-columns: 250px 1fr; gap: 16px; }

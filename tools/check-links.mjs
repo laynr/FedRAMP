@@ -16,15 +16,16 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const CONCURRENCY = 6;
 
 const { SOURCES } = await import(pathToFileURL(path.join(ROOT, 'docs/js/sources.js')));
-const { FEEDS } = await import(pathToFileURL(path.join(ROOT, 'docs/js/feeds.js')));
+const { resolveFeedRevisions } = await import(pathToFileURL(path.join(ROOT, 'docs/js/feeds.js')));
 
 const urls = new Set();
 
 // 1. Citation registry.
 for (const s of Object.values(SOURCES)) urls.add(s.url);
 
-// 2. Feed endpoints (both CDNs) and their home repos.
-for (const feed of Object.values(FEEDS)) {
+// 2. Exact immutable feed endpoints (both mirrors) and their home repos.
+const resolvedFeeds = await resolveFeedRevisions();
+for (const feed of Object.values(resolvedFeeds)) {
   for (const u of feed.urls) urls.add(u);
   urls.add(feed.home);
 }

@@ -113,7 +113,7 @@ function draw() {
       <button class="ghost-btn" data-clear-filters>Clear search &amp; filters</button>
     </div>`;
     countEl.textContent = 'No matches — try clearing the filters';
-    moreBtn.style.display = 'none';
+    moreBtn.hidden = true;
     return;
   }
   list.innerHTML = rows.slice(0, shown).map((p) => `
@@ -127,7 +127,7 @@ function draw() {
       </button>
     </div>`).join('');
   countEl.textContent = `${Math.min(shown, rows.length)} of ${fmt(rows.length)} services — click one for its story`;
-  moreBtn.style.display = rows.length > shown ? '' : 'none';
+  moreBtn.hidden = rows.length <= shown;
 }
 
 function wire() {

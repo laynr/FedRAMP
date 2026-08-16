@@ -29,7 +29,7 @@ If you need guaranteed freshness or the full records, please go straight to the 
 | `activity.json` | The most recent program events (status changes and agency adoptions), newest first: `date, kind, to, class, cso, csp` | computed from changelog + marketplace |
 | `ksi.json` | The Key Security Indicator catalog: 10 families → indicators with official statements, mapped NIST SP 800-53 controls, and per-class variations where FedRAMP defines them | rules `KSI` section |
 | `changelog.json` | Status-change events from the last 18 months, newest first: `date, csp, cso, type, path, class, from, to`. **API-only** — the site itself doesn't load this file; it ships for downstream consumers who want the raw events | changelog export |
-| `meta.json` | When this snapshot was generated + upstream freshness timestamps and rules version | all three |
+| `meta.json` | Snapshot time plus each source's immutable Git commit, verified blob, exact URL, SHA-256 digest, byte count, upstream timestamp, and rules version | all three |
 
 ## Contract notes
 
@@ -38,6 +38,10 @@ If you need guaranteed freshness or the full records, please go straight to the 
 - **Sanitization:** all string values are sanitized at generation — type-checked,
   length-capped, control characters stripped, fields allowlisted. Sentinel values like
   `"Not Active"` are normalized to `null`; dates are truncated to `YYYY-MM-DD`.
+- **Provenance:** generation resolves mutable branch heads to immutable 40-character Git commits,
+  downloads by commit, verifies that the bytes hash to the Git blob recorded for that file at that
+  commit, SHA-256 digests them before parsing, and records that evidence in `meta.json`. The CLI
+  accepts a cached feed only when its body still matches both recorded identities.
 - **Freshness caveat:** GitHub pauses scheduled workflows after ~60 days of repository
   inactivity. If the newest data here looks stale, that's the likely cause — the tool's
   in-app "fetch live" button always pulls current data directly from the upstream feeds.

@@ -184,15 +184,14 @@ document.addEventListener('visibilitychange', () => {
 });
 
 // ---------- per-view guarded rendering ----------
-let ksiReady = false;
+let disposeKsi = null;
 function renderKsi() {
-  if (ksiReady) return;
   const totalInd = state.ksi.families.reduce((a, f) => a + f.indicators.length, 0);
   document.getElementById('ksi-fam-count').textContent = state.ksi.families.length;
   document.getElementById('ksi-ind-count').textContent = totalInd;
   document.getElementById('ksi-version').textContent = state.ksi.version;
-  initKsi(document.getElementById('ksi-panel'), state.ksi);
-  ksiReady = true;
+  disposeKsi?.();
+  disposeKsi = initKsi(document.getElementById('ksi-panel'), state.ksi);
 }
 
 function guardRender(label, viewId, fn) {

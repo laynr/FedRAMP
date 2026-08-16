@@ -21,6 +21,7 @@ function tooltip() {
   if (!tip) {
     tip = document.createElement('div');
     tip.className = 'chart-tip';
+    tip.hidden = true;
     // Visual duplicate of content already accessible on the marks — hide from AT.
     tip.setAttribute('aria-hidden', 'true');
     document.body.appendChild(tip);
@@ -34,7 +35,7 @@ function tooltip() {
  * Show the tooltip. `content` is structured — { title, lines: [...] } — and is
  * rendered via textContent only (no HTML interpretation of data values).
  */
-function showTip(content, evt) {
+function showTip(content) {
   const tip = tooltip();
   tip.textContent = '';
   const title = document.createElement('strong');
@@ -46,19 +47,12 @@ function showTip(content, evt) {
     div.textContent = String(line);
     tip.appendChild(div);
   }
-  tip.style.display = 'block';
-  const pad = 12;
-  const { innerWidth } = window;
-  const rect = tip.getBoundingClientRect();
-  let x = evt.clientX + pad;
-  if (x + rect.width > innerWidth - 8) x = evt.clientX - rect.width - pad;
-  tip.style.left = `${x + window.scrollX}px`;
-  tip.style.top = `${evt.clientY + window.scrollY - rect.height - pad}px`;
+  tip.hidden = false;
 }
 
 export function hideTip() {
   const tip = document.querySelector('.chart-tip');
-  if (tip) tip.style.display = 'none';
+  if (tip) tip.hidden = true;
 }
 
 // One-time per-container listeners (survive innerHTML re-renders without stacking).
@@ -76,8 +70,12 @@ function bindTipBackstop(container) {
  * headers[0] names the row-label column; rows: [label, ...values].
  */
 function dataTable(container, caption, headers, rows) {
+  // Clip a wrapper instead of the table itself. A table's intrinsic width can
+  // still widen the mobile layout in some engines even when the table has the
+  // usual 1px visually-hidden styles.
+  const wrapper = document.createElement('div');
+  wrapper.className = 'visually-hidden';
   const table = document.createElement('table');
-  table.className = 'visually-hidden';
   const cap = document.createElement('caption');
   cap.textContent = caption;
   table.appendChild(cap);
@@ -103,14 +101,13 @@ function dataTable(container, caption, headers, rows) {
     tbody.appendChild(tr);
   }
   table.appendChild(tbody);
-  container.appendChild(table);
+  wrapper.appendChild(table);
+  container.appendChild(wrapper);
 }
 
 function renderEmptyState(container, message = 'No data to chart yet.') {
   const p = document.createElement('p');
   p.className = 'chart-empty';
-  p.style.color = 'var(--muted, #6b7280)';
-  p.style.fontSize = '0.85rem';
   p.textContent = message;
   container.appendChild(p);
 }
@@ -176,10 +173,10 @@ export function stackedColumns(container, data, seriesNames, { valueLabel = null
         class: `series-${si + 1}`,
       });
       const name = seriesNames[si];
-      rect.addEventListener('mousemove', (evt) => showTip({
+      rect.addEventListener('mousemove', () => showTip({
         title: d.label,
         lines: [`${name}: ${v}`, `total: ${total}`],
-      }, evt));
+      }));
       rect.addEventListener('mouseleave', hideTip);
       g.appendChild(rect);
       renderedBelow = true;
@@ -243,17 +240,19 @@ export function barList(container, data, { format = (v) => String(v), caption = 
   for (const d of data) {
     const row = document.createElement('div');
     row.className = 'barlist-row';
-    const pct = max > 0 ? Math.max(1.5, (d.value / max) * 100) : 0;
     row.innerHTML = `
       <div class="barlist-label"><span class="barlist-name"></span><span class="barlist-sub"></span></div>
-      <div class="barlist-track"><div class="barlist-bar" style="width:${pct}%"></div><span class="barlist-value"></span></div>`;
+      <div class="barlist-track"><progress class="barlist-bar" aria-hidden="true"></progress><span class="barlist-value"></span></div>`;
+    const bar = row.querySelector('.barlist-bar');
+    bar.max = max || 1;
+    bar.value = Math.max(0, Number(d.value) || 0);
     row.querySelector('.barlist-name').textContent = d.label;
     row.querySelector('.barlist-sub').textContent = d.sub ?? '';
     row.querySelector('.barlist-value').textContent = format(d.value);
-    row.addEventListener('mousemove', (evt) => showTip({
+    row.addEventListener('mousemove', () => showTip({
       title: d.label,
       lines: [d.sub ?? '', format(d.value)],
-    }, evt));
+    }));
     row.addEventListener('mouseleave', hideTip);
     container.appendChild(row);
   }

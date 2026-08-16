@@ -10,10 +10,10 @@ import { esc, storage } from './ui.js';
 
 const STORE_KEY = 'fedramp-ksi-selfcheck-v1';
 
-function loadChecks() {
+function loadChecks(validIds) {
   try {
     const parsed = JSON.parse(storage.get(STORE_KEY) ?? '[]');
-    return new Set(Array.isArray(parsed) ? parsed.filter((x) => typeof x === 'string') : []);
+    return new Set(Array.isArray(parsed) ? parsed.filter((x) => typeof x === 'string' && validIds.has(x)) : []);
   } catch {
     return new Set();
   }
@@ -29,7 +29,10 @@ function famTabId(id) {
 }
 
 export function initKsi(root, ksi) {
-  const checks = loadChecks();
+  const validIds = new Set(ksi.families.flatMap((family) => family.indicators.map((indicator) => indicator.id)));
+  const checks = loadChecks(validIds);
+  const controller = new AbortController();
+  const listen = (target, type, handler) => target.addEventListener(type, handler, { signal: controller.signal });
   const famNav = root.querySelector('#ksi-families');
   const detail = root.querySelector('#ksi-detail');
   const ring = root.querySelector('#ksi-ring');
@@ -56,7 +59,7 @@ export function initKsi(root, ksi) {
     const done = checks.size;
     const pct = totalIndicators ? Math.round((done / totalIndicators) * 100) : 0;
     const C = 2 * Math.PI * 26;
-    ring.style.strokeDasharray = `${(pct / 100) * C} ${C}`;
+    ring.setAttribute('stroke-dasharray', `${(pct / 100) * C} ${C}`);
     ringLabel.textContent = `${done}/${totalIndicators}`;
     ringWrap.setAttribute('aria-valuenow', String(done));
     ringWrap.setAttribute('aria-valuetext', `${done} of ${totalIndicators} indicators checked`);
@@ -88,6 +91,7 @@ export function initKsi(root, ksi) {
       const btn = document.createElement('button');
       btn.className = 'ksi-fam' + (isActive ? ' active' : '');
       btn.id = famTabId(f.id);
+      btn.dataset.familyId = f.id;
       btn.setAttribute('role', 'tab');
       btn.setAttribute('aria-selected', isActive ? 'true' : 'false');
       btn.setAttribute('aria-controls', detail.id || 'ksi-detail');
@@ -96,16 +100,19 @@ export function initKsi(root, ksi) {
       btn.querySelector('.ksi-fam-id').textContent = f.short;
       btn.querySelector('.ksi-fam-name').textContent = f.name;
       btn.querySelector('.ksi-fam-count').textContent = famProgress(f);
-      btn.addEventListener('click', () => {
-        activeFam = f.id;
-        renderNav();
-        renderDetail();
-      });
       famNav.appendChild(btn);
     }
   }
 
-  famNav.addEventListener('keydown', (e) => {
+  listen(famNav, 'click', (e) => {
+    const btn = e.target.closest('.ksi-fam[data-family-id]');
+    if (!btn || !famNav.contains(btn)) return;
+    activeFam = btn.dataset.familyId;
+    renderNav();
+    renderDetail();
+  });
+
+  listen(famNav, 'keydown', (e) => {
     const idx = ksi.families.findIndex((f) => f.id === activeFam);
     if (idx < 0) return;
     if (e.key === 'ArrowDown' || e.key === 'ArrowRight') {
@@ -146,18 +153,22 @@ export function initKsi(root, ksi) {
         </span>`;
       item.querySelector('strong').textContent = ind.name;
       item.querySelector('.ksi-ind-statement').textContent = ind.statement;
-      item.querySelector('input').addEventListener('change', (e) => {
-        if (e.target.checked) checks.add(ind.id);
-        else checks.delete(ind.id);
-        saveChecks(checks);
-        updateRing();
-        renderNav();
-      });
+      item.querySelector('input').dataset.indicatorId = ind.id;
       detail.appendChild(item);
     }
   }
 
-  root.querySelector('#ksi-export').addEventListener('click', () => {
+  listen(detail, 'change', (e) => {
+    const input = e.target.closest('input[data-indicator-id]');
+    if (!input || !detail.contains(input)) return;
+    if (input.checked) checks.add(input.dataset.indicatorId);
+    else checks.delete(input.dataset.indicatorId);
+    saveChecks(checks);
+    updateRing();
+    renderNav();
+  });
+
+  listen(root.querySelector('#ksi-export'), 'click', () => {
     const lines = [
       `# KSI self-check — gap list`,
       ``,
@@ -180,7 +191,7 @@ export function initKsi(root, ksi) {
     URL.revokeObjectURL(a.href);
   });
 
-  root.querySelector('#ksi-reset').addEventListener('click', () => {
+  listen(root.querySelector('#ksi-reset'), 'click', () => {
     checks.clear();
     saveChecks(checks);
     updateRing();
@@ -191,4 +202,5 @@ export function initKsi(root, ksi) {
   renderNav();
   renderDetail();
   updateRing();
+  return () => controller.abort();
 }

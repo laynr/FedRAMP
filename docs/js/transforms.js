@@ -216,10 +216,9 @@ export const START_STATUS = /(in process|review|initial implementation)/i;
 
 const DELISTED = /no status found/i;
 
-// 20x-path predicate. Verified vocabulary (live feed 2026-08-15):
-// cert_path ∈ {JAB, Agency, Program, 20x}, cert_type ∈ {Rev5, 20x, ''}.
-// "Program" is the marketplace's label for the 20x program path.
-const isPath20x = (e) => e.type === '20x' || e.path === '20x' || e.path === 'Program';
+// `Program` alone is NOT a 20x marker: the changelog also uses that path for
+// pre-20x Rev5 journeys. Require the feed's explicit 20x type/path value.
+const isPath20x = (e) => e.type === '20x' || e.path === '20x';
 
 /** Build per-product journeys from the raw changelog. Returns {journeys, excluded}. */
 export function buildJourneys(changelog) {
@@ -262,7 +261,6 @@ export function buildJourneys(changelog) {
     evs.sort((a, b) => cmpStr(a.date, b.date) || cmpStr(a.recorded, b.recorded) || cmpStr(a.to, b.to) || a.idx - b.idx);
     const deduped = evs.filter((e, i) => i === 0 || !(e.date === evs[i - 1].date && e.to === evs[i - 1].to));
 
-    const is20x = deduped.some(isPath20x);
     const migration = deduped.some((e) => e.source === 'migration');
     const live = deduped.filter((e) => !DELISTED.test(e.to));
     if (!live.length) {
@@ -272,13 +270,21 @@ export function buildJourneys(changelog) {
 
     const endIdx = live.findIndex((e) => isEndStatus(e.to));
     const end = endIdx === -1 ? null : live[endIdx];
-    const start = end ? (live.slice(0, endIdx).find((e) => START_STATUS.test(e.to)) ?? null) : null;
+    const startIdx = end ? live.slice(0, endIdx).findIndex((e) => START_STATUS.test(e.to)) : -1;
+    const start = startIdx === -1 ? null : live[startIdx];
 
     let days = null;
     if (!end) excluded.noEnd++;
     else if (!start) excluded.noStart++; // e.g. backfill starting at "Authorized", or FRR-only prehistory
     else if (end.date <= start.date) excluded.invalidOrder++;
     else days = Math.round((new Date(end.date) - new Date(start.date)) / 86_400_000);
+
+    // A later re-authorization must not relabel an earlier legacy completion.
+    // Measured cohorts use markers only from the selected start→end interval.
+    // Incomplete journeys use their live history for current-path UI, but never
+    // enter duration statistics.
+    const cohortEvents = start && end ? live.slice(startIdx, endIdx + 1) : live;
+    const is20x = cohortEvents.some(isPath20x);
 
     journeys.push({
       id,

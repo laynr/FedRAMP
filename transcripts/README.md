@@ -9,6 +9,7 @@ Code session logs from building OnRamp. They are the primary evidence of how the
 | File | What it is |
 |---|---|
 | `claude-code-session-main.jsonl` | The main build session (v1 → v2 pivot → v3 hardening → OnRamp rebrand). ~2,150 messages. |
+| `codex-hardening-session.md` | Human-readable log of the subsequent code-first integrity, refresh, CSP, browser, and accessibility hardening pass. |
 
 These are newline-delimited JSON (`.jsonl`) — one message per line — as written by Claude Code
 under `~/.claude/projects/`. Each line has a `type` (`user` / `assistant`), `message` content,
