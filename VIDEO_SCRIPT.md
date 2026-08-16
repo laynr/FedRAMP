@@ -6,7 +6,7 @@ Screen-record the live site (https://laynr.github.io/FedRAMP/); webcam optional.
 - "Two days ago I had zero FedRAMP experience — I've built AI inside classified networks, but
   never walked in the front door. This is the tool I built to learn it — and it runs on
   FedRAMP's own published data."
-- Point at the hero tile: "Median 70 days to certified on the new 20x path,
+- Point at the hero tile: "Median 64 days to certified on the new 20x path,
   versus 327 on the legacy path. I couldn't find that number published
   anywhere — this computes it from FedRAMP's event log, in your browser."
 
