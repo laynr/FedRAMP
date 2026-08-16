@@ -57,7 +57,7 @@ Screen-record the live site (https://laynr.github.io/FedRAMP/); webcam optional.
   a production version gets a backend, notifications, a real API service; and honesty as a
   feature — small samples labeled, exclusions counted, 'unofficial' in the masthead."
 - Time spent: "About six hours of active development, plus recording this video. The transcripts
-  folder contains raw Claude Code exports and clearly labeled Codex session summaries; the Codex
+  folder contains Claude Code session exports and clearly labeled Codex session summaries; the Codex
   summaries are not raw transcripts."
   "It's the rare FedRAMP resource that gets more correct over time — and gives you a reason to
   come back."

@@ -35,7 +35,7 @@ for architecture and [`AGENTS.md`](AGENTS.md) for how it was built.
 
 ## Time
 About **6 hours of active development** on August 15, 2026, plus video recording. The shipped
-files contain raw Claude Code exports and clearly labeled Codex session summaries. The Codex
+files contain Claude Code session exports and clearly labeled Codex session summaries. The Codex
 summaries are not raw transcripts, so the files are supporting evidence, not a complete clock.
 
 ## Notes for the reviewer

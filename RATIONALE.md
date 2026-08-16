@@ -86,7 +86,7 @@ can query FedRAMP state; agency-level adoption trends over time.
 ## Time spent
 
 About **6 hours of active development** on August 15, 2026, plus video recording. The shipped
-files contain raw Claude Code exports and clearly labeled Codex session summaries. The Codex
+files contain Claude Code session exports and clearly labeled Codex session summaries. The Codex
 summaries are not raw transcripts, so the files are supporting evidence, not a complete clock.
 
 ## AI usage

@@ -1,7 +1,7 @@
 # AI development transcripts
 
-Per the assignment's request to "submit your Claude/AI transcripts," these are the raw Claude
-Code session logs from building OnRamp — the evidence of how the AI was directed, evaluated,
+Per the assignment's request to "submit your Claude/AI transcripts," these are the Claude Code
+session exports from building OnRamp — evidence of how the AI was directed, evaluated,
 and corrected.
 
 ## Files
@@ -14,12 +14,13 @@ and corrected.
 | `codex-hardening-session.md` | Author-written summary of the evening Codex hardening pass. **Not a transcript** — see below. |
 | `codex-combined-audit-session.md` | Summary of the final combined audit, repairs, and verification. **Not a transcript.** |
 
-The `.jsonl` files are raw Claude Code exports. The `codex-*.md` files are written summaries of
-Codex sessions; they are not raw Codex transcripts.
+The `.jsonl` files are Claude Code exports from sessions that contributed to the implementation
+or submission-integrity fixes. Non-development sessions are outside this inventory. The `codex-*.md`
+files are written summaries of Codex sessions; they are not raw Codex transcripts.
 
 ## What these logs are — and are not
 
-Honest inventory, because the first version of this README overstated it:
+Inventory and capture limits:
 
 - `claude-code-session-main.jsonl` has 2,156 lines, but most are harness bookkeeping. The
   actual conversation is ~953 messages (615 assistant, 338 user-type records — of which 305
